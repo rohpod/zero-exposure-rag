@@ -7,13 +7,18 @@ app.stub_data. Each step is called behind its interface so a stub can be
 swapped for the real implementation with a one-line change here.
 
 Every request writes exactly one audit row, including auth failures.
+
+EVAL_MODE / X-Guards: the X-Guards header only has an effect when the
+EVAL_MODE environment variable is "1". Otherwise guards_disabled is always
+False regardless of what the header says. This is a security invariant
+(see PLAN.docx and docs/decisions.md).
 """
 import datetime
 import uuid
 
 from app.audit import write_row
 from app.auth import AuthError, resolve_token
-from app.config import STUB_MODE
+from app.config import EVAL_MODE, STUB_MODE
 from app.stub_data import STUB_ANSWER, STUB_GUARDS, STUB_LATENCY_MS, STUB_SOURCES
 
 
@@ -25,12 +30,23 @@ def _now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
-def run_pipeline(query: str, token: str) -> dict:
+def resolve_guards_disabled(x_guards_header: str | None) -> bool:
+    """
+    Returns whether guards should be treated as disabled for this request.
+    Only ever True when EVAL_MODE=1 AND the header value is "off".
+    """
+    if not EVAL_MODE:
+        return False
+    return (x_guards_header or "").strip().lower() == "off"
+
+
+def run_pipeline(query: str, token: str, x_guards_header: str | None = None) -> dict:
     """
     Runs the full pipeline for one request and returns a dict matching
     the AskResponse schema.
     """
     request_id = f"r_{uuid.uuid4().hex[:8]}"
+    guards_disabled = resolve_guards_disabled(x_guards_header)
 
     try:
         identity = resolve_token(token)
@@ -60,6 +76,9 @@ def run_pipeline(query: str, token: str) -> dict:
         # 2. retrieval   -> STUB_SOURCES
         # 3. LLM         -> STUB_ANSWER
         # 4. output guard -> STUB_GUARDS["output"]
+        # guards_disabled has no effect yet since guards are stubbed; it is
+        # threaded through now so the contract is testable before the real
+        # guards land.
         write_row(
             request_id=request_id,
             timestamp=_now(),
@@ -79,6 +98,7 @@ def run_pipeline(query: str, token: str) -> dict:
             "sources": STUB_SOURCES,
             "guards": STUB_GUARDS,
             "latency_ms": STUB_LATENCY_MS,
+            "guards_disabled": guards_disabled,
         }
 
     raise NotImplementedError("Real pipeline not yet implemented. Set STUB_MODE=1.")
