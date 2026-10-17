@@ -3,3 +3,6 @@ uvicorn[standard]
 pydantic
 llama-cpp-python
 faker==33.3.1
+pytest
+httpx
+requests==2.34.2

@@ -4,11 +4,12 @@ FastAPI application entry point.
 Endpoints:
 - GET /health   : liveness/readiness check
 - POST /ask     : main pipeline endpoint
-- GET /audit    : latest audit rows, read only (added later)
+- GET /audit    : latest audit rows, read only
 - GET /dashboard: serves static dashboard files (added later)
 """
 from fastapi import FastAPI, Header, HTTPException
 
+from app.audit import read_latest
 from app.config import STUB_MODE
 from app.pipeline import PipelineAuthError, run_pipeline
 from app.schemas import AskRequest, AskResponse
@@ -26,12 +27,23 @@ def health():
 
 
 @app.post("/ask", response_model=AskResponse)
-def ask(body: AskRequest, x_user_token: str = Header(...)):
+def ask(
+    body: AskRequest,
+    x_user_token: str | None = Header(default=None),
+    x_guards: str | None = Header(default=None),
+):
     try:
-        result = run_pipeline(query=body.query, token=x_user_token)
+        result = run_pipeline(
+            query=body.query, token=x_user_token, x_guards_header=x_guards
+        )
     except PipelineAuthError:
         raise HTTPException(status_code=401, detail="invalid or missing token")
     except NotImplementedError as exc:
         raise HTTPException(status_code=501, detail=str(exc))
 
     return AskResponse(**result)
+
+
+@app.get("/audit")
+def audit(limit: int = 50):
+    return {"rows": read_latest(limit=limit)}

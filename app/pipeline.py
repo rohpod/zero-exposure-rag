@@ -5,11 +5,20 @@ auth -> input guard -> retrieval -> LLM -> output guard -> audit -> response.
 In STUB_MODE, retrieval, the LLM and the guards return canned values from
 app.stub_data. Each step is called behind its interface so a stub can be
 swapped for the real implementation with a one-line change here.
+
+Every request writes exactly one audit row, including auth failures.
+
+EVAL_MODE / X-Guards: the X-Guards header only has an effect when the
+EVAL_MODE environment variable is "1". Otherwise guards_disabled is always
+False regardless of what the header says. This is a security invariant
+(see PLAN.docx and docs/decisions.md).
 """
+import datetime
 import uuid
 
+from app.audit import write_row
 from app.auth import AuthError, resolve_token
-from app.config import STUB_MODE
+from app.config import EVAL_MODE, STUB_MODE
 from app.stub_data import STUB_ANSWER, STUB_GUARDS, STUB_LATENCY_MS, STUB_SOURCES
 
 
@@ -17,22 +26,48 @@ class PipelineAuthError(Exception):
     pass
 
 
-def run_pipeline(query: str, token: str) -> dict:
+def _now() -> str:
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def resolve_guards_disabled(x_guards_header: str | None) -> bool:
+    """
+    Returns whether guards should be treated as disabled for this request.
+    Only ever True when EVAL_MODE=1 AND the header value is "off".
+    """
+    if not EVAL_MODE:
+        return False
+    return (x_guards_header or "").strip().lower() == "off"
+
+
+def run_pipeline(query: str, token: str, x_guards_header: str | None = None) -> dict:
     """
     Runs the full pipeline for one request and returns a dict matching
-    the AskResponse schema (request_id is added by the caller... actually
-    added here so audit logging, once wired in, can use the same id).
+    the AskResponse schema.
     """
+    request_id = f"r_{uuid.uuid4().hex[:8]}"
+    guards_disabled = resolve_guards_disabled(x_guards_header)
+
     try:
         identity = resolve_token(token)
     except AuthError as exc:
+        # Auth failures still get an audit row, with no user_id/role known.
+        write_row(
+            request_id=request_id,
+            timestamp=_now(),
+            user_id=None,
+            role=None,
+            query=query,
+            decision="blocked_input",
+            block_reason="auth",
+        )
         raise PipelineAuthError(str(exc)) from exc
 
     # Role comes only from the resolved token, never from the request body
     # or query text. This is enforced simply by never reading role from
     # anywhere else in this function.
-    _role = identity["role"]
-    request_id = f"r_{uuid.uuid4().hex[:8]}"
+    role = identity["role"]
+    user_id = identity["user_id"]
 
     if STUB_MODE:
         # Step order below mirrors the real pipeline even in stub mode,
@@ -41,6 +76,20 @@ def run_pipeline(query: str, token: str) -> dict:
         # 2. retrieval   -> STUB_SOURCES
         # 3. LLM         -> STUB_ANSWER
         # 4. output guard -> STUB_GUARDS["output"]
+        # guards_disabled has no effect yet since guards are stubbed; it is
+        # threaded through now so the contract is testable before the real
+        # guards land.
+        write_row(
+            request_id=request_id,
+            timestamp=_now(),
+            user_id=user_id,
+            role=role,
+            query=query,
+            decision="answered",
+            retrieved_doc_ids=STUB_SOURCES,
+            redaction_count=STUB_GUARDS["output"]["redactions"],
+            latency_ms=STUB_LATENCY_MS,
+        )
         return {
             "request_id": request_id,
             "answer": STUB_ANSWER,
@@ -49,6 +98,7 @@ def run_pipeline(query: str, token: str) -> dict:
             "sources": STUB_SOURCES,
             "guards": STUB_GUARDS,
             "latency_ms": STUB_LATENCY_MS,
+            "guards_disabled": guards_disabled,
         }
 
     raise NotImplementedError("Real pipeline not yet implemented. Set STUB_MODE=1.")
