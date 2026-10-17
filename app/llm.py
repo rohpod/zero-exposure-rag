@@ -49,5 +49,6 @@ def generate(
         full_prompt,
         max_tokens=max_tokens,
         temperature=temperature,
+        stop=["\n\nUser", "\nUser request", "\nUser question"],
     )
-    return out["choices"][0]["text"]
+    return out["choices"][0]["text"].strip()
