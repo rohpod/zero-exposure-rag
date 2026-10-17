@@ -2,3 +2,4 @@ fastapi
 uvicorn[standard]
 pydantic
 llama-cpp-python
+faker==33.3.1

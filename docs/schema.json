@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Document",
+  "description": "Schema for Zero-Exposure RAG documents",
+  "type": "object",
+  "required": [
+    "doc_id",
+    "doc_type",
+    "clearance",
+    "customer_id",
+    "text"
+  ],
+  "properties": {
+    "doc_id": {
+      "type": "string",
+      "pattern": "^doc_[0-9]{4}$",
+      "description": "Unique 4-digit zero-padded document identifier (e.g. doc_0042)"
+    },
+    "doc_type": {
+      "type": "string",
+      "enum": [
+        "policy",
+        "faq",
+        "profile",
+        "transactions",
+        "case_note",
+        "compliance_report"
+      ],
+      "description": "Category of the document"
+    },
+    "clearance": {
+      "type": "integer",
+      "enum": [1, 2, 3],
+      "description": "Security clearance level: 1 (support), 2 (fraud analyst), 3 (compliance officer)"
+    },
+    "customer_id": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^c_[0-9]+$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Customer identifier (e.g. c_017) or null for organization-wide documents"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Text body of the document"
+    }
+  },
+  "additionalProperties": false
+}
