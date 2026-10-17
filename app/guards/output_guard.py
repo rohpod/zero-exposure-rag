@@ -51,7 +51,12 @@ def scan_output(text: str, role: str, context_docs: list[dict] = None) -> dict:
         reasons.append(f"verbatim restricted text from: {', '.join(verbatim_docs)}")
 
     if reasons:
-        return {"text": "", "blocked": True, "reasons": reasons}
+        return {"text": "", "blocked": True, "reasons": reasons, "redaction_count": 0}
 
     redacted = redact(text, role)
-    return {"text": redacted["text"], "blocked": False, "reasons": []}
+    return {
+        "text": redacted["text"],
+        "blocked": False,
+        "reasons": [],
+        "redaction_count": len(redacted.get("found", [])),
+    }
