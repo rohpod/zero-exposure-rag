@@ -101,3 +101,10 @@ Record decisions that affect more than one person, plus surprises worth remember
 - Owner: Kaustubh
 - Affects: anyone running the pipeline locally or on a fresh VM checkout — must run train_injection.py once before injection.py can load the model.
 
+### Retriever relevance result on the VM
+- Stage: 1
+- Decision: Record the retriever relevance check as measured on the LinuxONE VM: 20/20 fixtures have their best document in the top 3 (tests/retrieval/test_retriever.py::test_relevance_fixtures, Python 3.12.3, rank-bm25 0.2.2). All 12 retrieval tests and all 8 data tests pass on the VM.
+- Why: The plan requires recording measured numbers. The fixtures come from the same synthetic generator as the corpus, so queries share wording with their target documents; this result is indicative, not an independent benchmark.
+- Alternatives considered: none.
+- Owner: Kishan (data and retrieval)
+- Affects: retrieval/retriever.py, README results section
