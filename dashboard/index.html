@@ -1,15 +1,433 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Zero-Exposure RAG — Dashboard</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Zero-Exposure RAG — Red-Team Dashboard</title>
+<style>
+  :root {
+    --bg: #0D1117;
+    --panel: #161B22;
+    --panel-border: #30363D;
+    --text: #E6EDF3;
+    --text-dim: #8B949E;
+    --safe: #3FB950;
+    --leak: #F85149;
+    --accent: #58A6FF;
+    --sans: -apple-system, "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  a { color: var(--accent); }
+
+  .shell {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    min-height: 100vh;
+  }
+  @media (max-width: 860px) {
+    .shell { grid-template-columns: 1fr; }
+  }
+
+  /* --- Left rail --- */
+  .rail {
+    border-right: 1px solid var(--panel-border);
+    padding: 24px 20px;
+    background: var(--panel);
+  }
+  .rail h1 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 2px;
+    letter-spacing: -0.01em;
+  }
+  .rail .sub {
+    color: var(--text-dim);
+    font-size: 12px;
+    margin: 0 0 28px;
+  }
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  select, input, textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    padding: 8px 10px;
+    font-family: var(--sans);
+    font-size: 13px;
+    border-radius: 4px;
+  }
+  select:focus, input:focus, textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+  }
+  textarea { resize: vertical; min-height: 64px; }
+  button {
+    width: 100%;
+    background: var(--accent);
+    color: #0D1117;
+    border: none;
+    padding: 9px 10px;
+    font-weight: 600;
+    font-size: 13px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.08); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .live-answer {
+    margin-top: 16px;
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 12.5px;
+    display: none;
+  }
+  .live-answer.show { display: block; }
+  .live-answer .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-bottom: 8px;
+  }
+  .tag.answered { background: rgba(63,185,80,.15); color: var(--safe); }
+  .tag.blocked { background: rgba(248,81,73,.15); color: var(--leak); }
+  .live-answer .answer-text { color: var(--text-dim); margin-bottom: 8px; }
+  .live-answer .meta { color: var(--text-dim); font-family: var(--mono); font-size: 11px; }
+
+  /* --- Main --- */
+  main { padding: 28px 32px; max-width: 1040px; }
+  .section-title {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin: 0 0 12px;
+    font-weight: 600;
+  }
+
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--panel-border);
+    border: 1px solid var(--panel-border);
+    margin-bottom: 32px;
+  }
+  .tile {
+    background: var(--panel);
+    padding: 16px;
+  }
+  .tile .num {
+    font-family: var(--mono);
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .tile .num.safe { color: var(--safe); }
+  .tile .num.leak { color: var(--leak); }
+  .tile .label {
+    color: var(--text-dim);
+    font-size: 11.5px;
+    margin-top: 6px;
+  }
+
+  .chart-panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    padding: 20px;
+    margin-bottom: 32px;
+  }
+  .chart-panel canvas { max-height: 280px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    font-size: 12.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--panel-border);
+    font-family: var(--mono);
+  }
+  th {
+    color: var(--text-dim);
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 11.5px;
+    text-transform: none;
+  }
+  tr:last-child td { border-bottom: none; }
+  .decision { font-family: var(--mono); }
+  .decision.answered { color: var(--safe); }
+  .decision.blocked_input, .decision.blocked_output { color: var(--leak); }
+
+  .quotable-flag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    margin-left: 10px;
+  }
+  .quotable-flag.yes { background: rgba(63,185,80,.15); color: var(--safe); }
+  .quotable-flag.no { background: rgba(248,81,73,.15); color: var(--leak); }
+
+  .empty-state {
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 24px;
+    text-align: center;
+    border: 1px dashed var(--panel-border);
+  }
+</style>
 </head>
 <body>
-  <h1>Dashboard coming soon</h1>
-  <p>
-    This is a placeholder. The real dashboard (live query panel, metrics,
-    attack-success chart, latest audit rows) will be served from this
-    directory. See PLAN.docx, Member 4 tasks.
-  </p>
+<div class="shell">
+
+  <aside class="rail">
+    <h1>Zero-Exposure RAG</h1>
+    <p class="sub">Red-team results &amp; live query</p>
+
+    <div class="field">
+      <label for="role">Role</label>
+      <select id="role">
+        <option value="support_agent">Support Agent</option>
+        <option value="fraud_analyst">Fraud Analyst</option>
+        <option value="compliance_officer">Compliance Officer</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="token">Token</label>
+      <input id="token" type="password" placeholder="paste token — never stored" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label for="query">Query</label>
+      <textarea id="query" placeholder="What's this customer's account status?"></textarea>
+    </div>
+    <button id="sendBtn">Ask</button>
+
+    <div class="live-answer" id="liveAnswer">
+      <span class="tag" id="liveTag"></span>
+      <div class="answer-text" id="liveText"></div>
+      <div class="meta" id="liveMeta"></div>
+    </div>
+  </aside>
+
+  <main>
+    <p class="section-title">
+      Results
+      <span class="quotable-flag" id="quotableFlag"></span>
+    </p>
+
+    <div class="tiles" id="tiles"></div>
+
+    <div class="chart-panel">
+      <p class="section-title" style="margin-bottom:16px;">Attack success rate — guards off vs on</p>
+      <canvas id="asrChart"></canvas>
+    </div>
+
+    <p class="section-title">Latest audit rows</p>
+    <div id="auditWrap">
+      <table id="auditTable" style="display:none;">
+        <thead>
+          <tr><th>Time</th><th>Role</th><th>Decision</th><th>Reason</th><th>Sources</th></tr>
+        </thead>
+        <tbody id="auditBody"></tbody>
+      </table>
+      <div class="empty-state" id="auditEmpty">No audit rows yet.</div>
+    </div>
+  </main>
+
+</div>
+
+<script src="vendor/chart.umd.min.js"></script>
+<script>
+// Fallback sample data — matches score.py's real output shape exactly.
+// Used only if /dashboard/results.json and /audit can't be reached
+// (e.g. viewing this file standalone, or before a run has been scored).
+const FALLBACK_RESULTS = {
+  quotable: false,
+  stub_detected_count: 0,
+  error_count: 1,
+  by_split: {
+    dev: {
+      attacks: {
+        off: { overall_asr: 0.42, pii_leakage_rate: 0.31,
+               by_category: {
+                 direct_injection: { attack_success_rate: 0.55, total: 30, success: 17, errors: 0 },
+                 indirect_injection: { attack_success_rate: 0.38, total: 30, success: 11, errors: 0 },
+                 role_spoofing: { attack_success_rate: 0.47, total: 28, success: 13, errors: 0 },
+                 pii_extraction: { attack_success_rate: 0.34, total: 32, success: 11, errors: 0 },
+                 obfuscated_exfil: { attack_success_rate: 0.40, total: 30, success: 12, errors: 0 },
+               } },
+        on:  { overall_asr: 0.06, pii_leakage_rate: 0.04,
+               by_category: {
+                 direct_injection: { attack_success_rate: 0.03, total: 30, success: 1, errors: 0 },
+                 indirect_injection: { attack_success_rate: 0.10, total: 30, success: 3, errors: 0 },
+                 role_spoofing: { attack_success_rate: 0.04, total: 28, success: 1, errors: 0 },
+                 pii_extraction: { attack_success_rate: 0.03, total: 32, success: 1, errors: 0 },
+                 obfuscated_exfil: { attack_success_rate: 0.10, total: 30, success: 3, errors: 0 },
+               } },
+      },
+    },
+  },
+  benign_false_block_rate: 0.05,
+  benign_total: 60,
+  benign_blocked: 3,
+};
+
+const FALLBACK_AUDIT = [
+  { timestamp: "2026-10-18T10:02:11+0000", role: "support_agent", decision: "answered", block_reason: null, retrieved_doc_ids: ["doc_0042"] },
+  { timestamp: "2026-10-18T10:02:40+0000", role: "fraud_analyst", decision: "blocked_output", block_reason: "output_guard", retrieved_doc_ids: ["doc_0651"] },
+  { timestamp: "2026-10-18T10:03:02+0000", role: "support_agent", decision: "blocked_input", block_reason: "input_guard", retrieved_doc_ids: [] },
+];
+
+async function fetchJSON(url) {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+
+function pct(x) {
+  return x === null || x === undefined ? "—" : (x * 100).toFixed(1) + "%";
+}
+
+function renderTiles(result) {
+  const dev = result.by_split?.dev?.attacks;
+  const off = dev?.off, on = dev?.on;
+  const tiles = [
+    { label: "ASR — guards off", value: pct(off?.overall_asr), cls: "leak" },
+    { label: "ASR — guards on", value: pct(on?.overall_asr), cls: "safe" },
+    { label: "PII leakage — on", value: pct(on?.pii_leakage_rate), cls: "safe" },
+    { label: "Benign false-block", value: pct(result.benign_false_block_rate), cls: "" },
+    { label: "Errors excluded", value: result.error_count ?? "—", cls: "" },
+  ];
+  document.getElementById("tiles").innerHTML = tiles.map(t => `
+    <div class="tile">
+      <div class="num ${t.cls}">${t.value}</div>
+      <div class="label">${t.label}</div>
+    </div>`).join("");
+
+  const flag = document.getElementById("quotableFlag");
+  flag.textContent = result.quotable ? "quotable" : "not quotable — stub detected";
+  flag.className = "quotable-flag " + (result.quotable ? "yes" : "no");
+}
+
+function renderChart(result) {
+  const off = result.by_split?.dev?.attacks?.off?.by_category || {};
+  const on = result.by_split?.dev?.attacks?.on?.by_category || {};
+  const categories = Array.from(new Set([...Object.keys(off), ...Object.keys(on)]));
+  const offData = categories.map(c => (off[c]?.attack_success_rate ?? 0) * 100);
+  const onData = categories.map(c => (on[c]?.attack_success_rate ?? 0) * 100);
+
+  new Chart(document.getElementById("asrChart"), {
+    type: "bar",
+    data: {
+      labels: categories,
+      datasets: [
+        { label: "Guards off", data: offData, backgroundColor: "#F85149" },
+        { label: "Guards on", data: onData, backgroundColor: "#3FB950" },
+      ],
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: true, max: 100, ticks: { color: "#8B949E", callback: v => v + "%" },
+             grid: { color: "#30363D" } },
+        x: { ticks: { color: "#8B949E" }, grid: { display: false } },
+      },
+      plugins: { legend: { labels: { color: "#E6EDF3" } } },
+    },
+  });
+}
+
+function renderAudit(rows) {
+  const table = document.getElementById("auditTable");
+  const body = document.getElementById("auditBody");
+  const empty = document.getElementById("auditEmpty");
+  if (!rows || rows.length === 0) {
+    table.style.display = "none";
+    empty.style.display = "block";
+    return;
+  }
+  table.style.display = "table";
+  empty.style.display = "none";
+  body.innerHTML = rows.map(r => `
+    <tr>
+      <td>${(r.timestamp || "").replace("T", " ").replace(/\+.*/, "")}</td>
+      <td>${r.role || "—"}</td>
+      <td class="decision ${r.decision}">${r.decision}</td>
+      <td>${r.block_reason || "—"}</td>
+      <td>${(r.retrieved_doc_ids || []).join(", ") || "—"}</td>
+    </tr>`).join("");
+}
+
+async function loadDashboard() {
+  const results = (await fetchJSON("results.json")) || FALLBACK_RESULTS;
+  const audit = (await fetchJSON("/audit?limit=20")) || FALLBACK_AUDIT;
+  renderTiles(results);
+  renderChart(results);
+  renderAudit(Array.isArray(audit) ? audit : audit.rows || FALLBACK_AUDIT);
+}
+
+document.getElementById("sendBtn").addEventListener("click", async () => {
+  const token = document.getElementById("token").value.trim();
+  const query = document.getElementById("query").value.trim();
+  const btn = document.getElementById("sendBtn");
+  if (!token || !query) return;
+  btn.disabled = true;
+  btn.textContent = "Asking…";
+  try {
+    const r = await fetch("/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-User-Token": token },
+      body: JSON.stringify({ query }),
+    });
+    const body = await r.json();
+    const box = document.getElementById("liveAnswer");
+    const tag = document.getElementById("liveTag");
+    box.classList.add("show");
+    tag.textContent = body.blocked ? `blocked — ${body.block_reason}` : "answered";
+    tag.className = "tag " + (body.blocked ? "blocked" : "answered");
+    document.getElementById("liveText").textContent = body.answer || "(no answer)";
+    document.getElementById("liveMeta").textContent =
+      `sources: ${(body.sources || []).join(", ") || "none"} · latency: ${body.latency_ms?.llm ?? "—"}ms`;
+  } catch (e) {
+    const box = document.getElementById("liveAnswer");
+    box.classList.add("show");
+    document.getElementById("liveTag").textContent = "request failed";
+    document.getElementById("liveTag").className = "tag blocked";
+    document.getElementById("liveText").textContent = String(e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Ask";
+  }
+});
+
+loadDashboard();
+</script>
 </body>
 </html>
