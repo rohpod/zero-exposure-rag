@@ -108,3 +108,12 @@ Record decisions that affect more than one person, plus surprises worth remember
 - Alternatives considered: none.
 - Owner: Kishan (data and retrieval)
 - Affects: retrieval/retriever.py, README results section
+
+### Retrieval-only leak check on dev attacks
+- Stage: 3
+- Decision: add retrieval/leak_check.py, which runs the dev-split attacks through retrieve() per role and reports clearance violations, restricted canaries in returned chunks and the zero-result rate; it refuses test-split records in code.
+- Why: gives an early, LLM-free diagnostic of retrieval problems and enforces the tune-on-dev rule; leak counts are expected to be 0 by construction (per-tier indexes), so the useful signal is the zero-result rate. These results are diagnostic only and are not headline numbers.
+- Alternatives considered: running the attacks only through the full pipeline (rejected for this purpose: slower and blocked until integration is complete); importing redteam.run_suite.load_attacks (rejected: it would couple a retrieval tool to the red-team harness and its network dependency).
+- Owner: Kishan (data and retrieval)
+- Affects: retrieval/leak_check.py, tests/retrieval/test_leak_check.py
+
