@@ -2,12 +2,15 @@
 FastAPI application entry point.
 
 Endpoints:
-- GET /health   : liveness/readiness check
-- POST /ask     : main pipeline endpoint
-- GET /audit    : latest audit rows, read only
-- GET /dashboard: serves static dashboard files (added later)
+- GET /health      : liveness/readiness check
+- POST /ask        : main pipeline endpoint
+- GET /audit       : latest audit rows, read only
+- GET /dashboard/* : serves static dashboard files from dashboard/
 """
+from pathlib import Path
+
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.staticfiles import StaticFiles
 
 from app.audit import read_latest
 from app.config import STUB_MODE
@@ -15,6 +18,8 @@ from app.pipeline import PipelineAuthError, run_pipeline
 from app.schemas import AskRequest, AskResponse
 
 app = FastAPI(title="Zero-Exposure RAG")
+
+DASHBOARD_DIR = Path(__file__).parent.parent / "dashboard"
 
 
 @app.get("/health")
@@ -47,3 +52,6 @@ def ask(
 @app.get("/audit")
 def audit(limit: int = 50):
     return {"rows": read_latest(limit=limit)}
+
+
+app.mount("/dashboard", StaticFiles(directory=DASHBOARD_DIR, html=True), name="dashboard")
