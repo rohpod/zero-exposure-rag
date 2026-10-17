@@ -39,6 +39,7 @@ def test_pii_is_redacted_not_blocked():
     assert result["blocked"] is False
     assert "john@example.com" not in result["text"]
     assert "555-123-4567" not in result["text"]
+    assert result["redaction_count"] == 2
 
 
 def test_verbatim_restricted_chunk_blocks_for_lower_clearance():
