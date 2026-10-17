@@ -30,6 +30,8 @@ def _get_llm() -> Llama:
         _llm = Llama(
             model_path=str(MODEL_PATH),
             n_ctx=2048,
+            n_threads=3,
+            n_threads_batch=3,
             verbose=False,
         )
     return _llm
