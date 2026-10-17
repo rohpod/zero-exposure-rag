@@ -7,3 +7,4 @@ pytest
 httpx
 requests==2.34.2
 rank-bm25
+aiofiles

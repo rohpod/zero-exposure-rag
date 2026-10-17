@@ -1,0 +1,14 @@
+{
+  "support_agent": {
+    "account_number": "last_four",
+    "national_id": "remove"
+  },
+  "fraud_analyst": {
+    "account_number": "show",
+    "national_id": "mask"
+  },
+  "compliance_officer": {
+    "account_number": "show",
+    "national_id": "show"
+  }
+}
