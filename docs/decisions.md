@@ -38,3 +38,20 @@ Record decisions that affect more than one person, plus surprises worth remember
 - Alternatives considered: not yet evaluated. Candidates per PROJECT.docx fallback table: a smaller/more quantised model, lower max_tokens, fewer retrieved chunks.
 - Owner: Rohan
 - Affects: Kashvith (demo script timing), whole team (Stage 3 measurement latency numbers)
+
+### Compliance report canary phrasing
+- Stage: 1
+- Decision: Compliance reports use "Compliance reference: CANARY-L3-{digits}." instead of copying the case_note sample's "Internal reference:" wording.
+- Why: No clearance-3 sample existed to copy. The canary format itself didn't change, just the lead-in phrase.
+- Alternatives considered: Reusing "Internal reference:" for all levels.
+- Owner: Kishan (data and retrieval)
+- Affects: data/generate.py, Kashvith's red-team prompts for compliance_report canaries
+
+### Support notes mapped to doc_type profile
+- Stage: 1
+- Decision: Support notes are generated with doc_type "profile" rather than adding a separate enum value.
+- Why: The schema's doc_type enum has no separate "support_note" value; support notes serve as customer profile and context documents, and nothing downstream (retrieval, guards) currently distinguishes between the two.
+- Alternatives considered: Adding "support_note" to the schema's doc_type enum (rejected to keep the shared schema contract minimal and avoid breaking existing consumers).
+- Owner: Kishan (data and retrieval)
+- Affects: data/generate.py, retrieval filter queries, docs/schema.json
+
