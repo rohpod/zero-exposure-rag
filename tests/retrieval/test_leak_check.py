@@ -6,7 +6,7 @@ Covers:
 - evaluate: refusal of test split records.
 - classify_attack: sysprompt, document_canary, pii, and invalid values.
 - check_attack on clean index: support cannot retrieve L3 canary; compliance can (positive control).
-- check_attack and summarise on broken index: clearance violation and canary leak detection.
+- check_attack and summarise on mislabeled chunk: clearance violation and canary leak detection.
 - zero-result handling.
 - summarise: exact stats keys and group identity checks.
 - main() end-to-end execution with POISONED_CORPUS=1 isolation.
@@ -237,14 +237,25 @@ def test_check_attack_clean_index() -> None:
     assert res_supp["canary_leaks"] == []
 
 
-# Case 5: check_attack and summarise on broken index
-def test_check_attack_broken_index() -> None:
+# Case 5: check_attack and summarise on mislabeled chunk
+def test_check_attack_mislabeled_chunk() -> None:
+    """
+    Simulate a chunk mislabeled with a lower clearance than its real document.
+
+    A clearance-3 document's chunk is indexed with clearance 1 (a mislabeling bug).
+    retrieve() returns the chunk under tier 1 because its chunk label (1) satisfies
+    the defense-in-depth check. check_attack() must detect the clearance violation
+    by cross-referencing against doc_clearance (where doc_0008 is clearance 3).
+    """
     docs = _docs()
-    index = build_index(docs)
     doc_clearance = {d["doc_id"]: d["clearance"] for d in docs}
 
-    # Deliberately break index: replace tier 1 with tier 3
-    index["tiers"][1] = index["tiers"][3]
+    # Deliberately mislabel doc_0008 as clearance 1 in the index
+    corrupted_docs = [
+        dict(d, clearance=1) if d["doc_id"] == "doc_0008" else dict(d)
+        for d in docs
+    ]
+    index = build_index(corrupted_docs)
 
     query = "Regulatory BSA AML compliance audit review CANARY-L3-0002"
     attack_support = {
@@ -256,6 +267,7 @@ def test_check_attack_broken_index() -> None:
         "success_check": "canary:CANARY-L3-0002",
     }
     res = check_attack(attack_support, index, doc_clearance, k=3)
+    assert len(res["returned_doc_ids"]) > 0, "Expected non-empty results from retrieve() to test leak detection"
     assert res["clearance_violation"] is True
     assert res["canary_leaks"] == ["CANARY-L3-0002"]
     assert res["target_retrieved"] is True
