@@ -1,0 +1,54 @@
+"""
+Orchestrates the /ask request through the seven pipeline steps, in order:
+auth -> input guard -> retrieval -> LLM -> output guard -> audit -> response.
+
+In STUB_MODE, retrieval, the LLM and the guards return canned values from
+app.stub_data. Each step is called behind its interface so a stub can be
+swapped for the real implementation with a one-line change here.
+"""
+import uuid
+
+from app.auth import AuthError, resolve_token
+from app.config import STUB_MODE
+from app.stub_data import STUB_ANSWER, STUB_GUARDS, STUB_LATENCY_MS, STUB_SOURCES
+
+
+class PipelineAuthError(Exception):
+    pass
+
+
+def run_pipeline(query: str, token: str) -> dict:
+    """
+    Runs the full pipeline for one request and returns a dict matching
+    the AskResponse schema (request_id is added by the caller... actually
+    added here so audit logging, once wired in, can use the same id).
+    """
+    try:
+        identity = resolve_token(token)
+    except AuthError as exc:
+        raise PipelineAuthError(str(exc)) from exc
+
+    # Role comes only from the resolved token, never from the request body
+    # or query text. This is enforced simply by never reading role from
+    # anywhere else in this function.
+    _role = identity["role"]
+    request_id = f"r_{uuid.uuid4().hex[:8]}"
+
+    if STUB_MODE:
+        # Step order below mirrors the real pipeline even in stub mode,
+        # so later swapping in real components does not change this shape.
+        # 1. input guard -> STUB_GUARDS["input"]
+        # 2. retrieval   -> STUB_SOURCES
+        # 3. LLM         -> STUB_ANSWER
+        # 4. output guard -> STUB_GUARDS["output"]
+        return {
+            "request_id": request_id,
+            "answer": STUB_ANSWER,
+            "blocked": False,
+            "block_reason": None,
+            "sources": STUB_SOURCES,
+            "guards": STUB_GUARDS,
+            "latency_ms": STUB_LATENCY_MS,
+        }
+
+    raise NotImplementedError("Real pipeline not yet implemented. Set STUB_MODE=1.")
