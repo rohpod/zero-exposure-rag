@@ -128,7 +128,7 @@ PHONE_REGEX = re.compile(
 )
 
 ACCOUNT_CONTEXT_REGEX = re.compile(
-    r'(?i:\b(?:account(?:[_\s]+(?:number|no\.?|#))?|acct(?:[_\s]*(?:no\.?|#))?)\s*(?:is\s*)?[:#]?\s*)([A-Za-z0-9-]{6,16})\b'
+    r'(?i:\b(?:account(?:[_\s]+(?:number|no\.?|#))?|acct(?:[_\s]*(?:no\.?|#))?)\s*(?:is\s*)?[:#]?\s*)((?=[A-Za-z0-9-]*\d)[A-Za-z0-9-]{6,16})\b'
 )
 
 ACCOUNT_PREFIX_REGEX = re.compile(

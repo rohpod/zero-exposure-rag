@@ -143,6 +143,11 @@ def test_detect_overlap_resolution():
     assert found[0]["type"] == "email"
     assert found[0]["text"] == "alice@example.com"
 
+def test_account_context_does_not_match_plain_words():
+    # Regression test: "account balance" should not be mistaken for an
+    # account number just because "balance" is 6-16 characters long.
+    result = detect("The account balance is 500 dollars.")
+    assert result == []
 
 # ===========================================================================
 # 3. Clean String Tests (No PII)
