@@ -4,3 +4,4 @@ pydantic
 llama-cpp-python
 pytest
 httpx
+requests==2.34.2
