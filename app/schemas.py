@@ -23,3 +23,4 @@ class AskResponse(BaseModel):
     sources: list[str]
     guards: dict
     latency_ms: dict
+    guards_disabled: bool = False

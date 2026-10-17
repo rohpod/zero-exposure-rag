@@ -27,9 +27,15 @@ def health():
 
 
 @app.post("/ask", response_model=AskResponse)
-def ask(body: AskRequest, x_user_token: str = Header(...)):
+def ask(
+    body: AskRequest,
+    x_user_token: str = Header(...),
+    x_guards: str | None = Header(default=None),
+):
     try:
-        result = run_pipeline(query=body.query, token=x_user_token)
+        result = run_pipeline(
+            query=body.query, token=x_user_token, x_guards_header=x_guards
+        )
     except PipelineAuthError:
         raise HTTPException(status_code=401, detail="invalid or missing token")
     except NotImplementedError as exc:
