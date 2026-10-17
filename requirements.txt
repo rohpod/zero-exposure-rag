@@ -2,3 +2,4 @@ fastapi
 uvicorn[standard]
 pydantic
 llama-cpp-python
+requests==2.34.2
