@@ -1,0 +1,26 @@
+{
+  "support_agent": {
+    "first_name": "show",
+    "account_number": "last_four",
+    "card_number": "mask",
+    "phone": "remove",
+    "email": "remove",
+    "national_id": "remove"
+  },
+  "fraud_analyst": {
+    "first_name": "show",
+    "account_number": "show",
+    "card_number": "mask",
+    "phone": "mask",
+    "email": "mask",
+    "national_id": "mask"
+  },
+  "compliance_officer": {
+    "first_name": "show",
+    "account_number": "show",
+    "card_number": "mask",
+    "phone": "show",
+    "email": "show",
+    "national_id": "show"
+  }
+}
