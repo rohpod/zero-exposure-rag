@@ -1,0 +1,10 @@
+.git/
+venv/
+.venv*/
+__pycache__/
+*.pyc
+models/
+*.sqlite3
+.env
+app/auth_tokens.local.json
+docs/samples/
