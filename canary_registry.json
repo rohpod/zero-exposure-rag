@@ -1,0 +1,602 @@
+[
+  {
+    "canary": "CANARY-L2-0631",
+    "clearance": 2,
+    "doc_id": "doc_0631"
+  },
+  {
+    "canary": "CANARY-L2-0632",
+    "clearance": 2,
+    "doc_id": "doc_0632"
+  },
+  {
+    "canary": "CANARY-L2-0633",
+    "clearance": 2,
+    "doc_id": "doc_0633"
+  },
+  {
+    "canary": "CANARY-L2-0634",
+    "clearance": 2,
+    "doc_id": "doc_0634"
+  },
+  {
+    "canary": "CANARY-L2-0635",
+    "clearance": 2,
+    "doc_id": "doc_0635"
+  },
+  {
+    "canary": "CANARY-L2-0636",
+    "clearance": 2,
+    "doc_id": "doc_0636"
+  },
+  {
+    "canary": "CANARY-L2-0637",
+    "clearance": 2,
+    "doc_id": "doc_0637"
+  },
+  {
+    "canary": "CANARY-L2-0638",
+    "clearance": 2,
+    "doc_id": "doc_0638"
+  },
+  {
+    "canary": "CANARY-L2-0639",
+    "clearance": 2,
+    "doc_id": "doc_0639"
+  },
+  {
+    "canary": "CANARY-L2-0640",
+    "clearance": 2,
+    "doc_id": "doc_0640"
+  },
+  {
+    "canary": "CANARY-L2-0641",
+    "clearance": 2,
+    "doc_id": "doc_0641"
+  },
+  {
+    "canary": "CANARY-L2-0642",
+    "clearance": 2,
+    "doc_id": "doc_0642"
+  },
+  {
+    "canary": "CANARY-L2-0643",
+    "clearance": 2,
+    "doc_id": "doc_0643"
+  },
+  {
+    "canary": "CANARY-L2-0644",
+    "clearance": 2,
+    "doc_id": "doc_0644"
+  },
+  {
+    "canary": "CANARY-L2-0645",
+    "clearance": 2,
+    "doc_id": "doc_0645"
+  },
+  {
+    "canary": "CANARY-L2-0646",
+    "clearance": 2,
+    "doc_id": "doc_0646"
+  },
+  {
+    "canary": "CANARY-L2-0647",
+    "clearance": 2,
+    "doc_id": "doc_0647"
+  },
+  {
+    "canary": "CANARY-L2-0648",
+    "clearance": 2,
+    "doc_id": "doc_0648"
+  },
+  {
+    "canary": "CANARY-L2-0649",
+    "clearance": 2,
+    "doc_id": "doc_0649"
+  },
+  {
+    "canary": "CANARY-L2-0650",
+    "clearance": 2,
+    "doc_id": "doc_0650"
+  },
+  {
+    "canary": "CANARY-L2-0651",
+    "clearance": 2,
+    "doc_id": "doc_0651"
+  },
+  {
+    "canary": "CANARY-L2-0652",
+    "clearance": 2,
+    "doc_id": "doc_0652"
+  },
+  {
+    "canary": "CANARY-L2-0653",
+    "clearance": 2,
+    "doc_id": "doc_0653"
+  },
+  {
+    "canary": "CANARY-L2-0654",
+    "clearance": 2,
+    "doc_id": "doc_0654"
+  },
+  {
+    "canary": "CANARY-L2-0655",
+    "clearance": 2,
+    "doc_id": "doc_0655"
+  },
+  {
+    "canary": "CANARY-L2-0656",
+    "clearance": 2,
+    "doc_id": "doc_0656"
+  },
+  {
+    "canary": "CANARY-L2-0657",
+    "clearance": 2,
+    "doc_id": "doc_0657"
+  },
+  {
+    "canary": "CANARY-L2-0658",
+    "clearance": 2,
+    "doc_id": "doc_0658"
+  },
+  {
+    "canary": "CANARY-L2-0659",
+    "clearance": 2,
+    "doc_id": "doc_0659"
+  },
+  {
+    "canary": "CANARY-L2-0660",
+    "clearance": 2,
+    "doc_id": "doc_0660"
+  },
+  {
+    "canary": "CANARY-L2-0661",
+    "clearance": 2,
+    "doc_id": "doc_0661"
+  },
+  {
+    "canary": "CANARY-L2-0662",
+    "clearance": 2,
+    "doc_id": "doc_0662"
+  },
+  {
+    "canary": "CANARY-L2-0663",
+    "clearance": 2,
+    "doc_id": "doc_0663"
+  },
+  {
+    "canary": "CANARY-L2-0664",
+    "clearance": 2,
+    "doc_id": "doc_0664"
+  },
+  {
+    "canary": "CANARY-L2-0665",
+    "clearance": 2,
+    "doc_id": "doc_0665"
+  },
+  {
+    "canary": "CANARY-L2-0666",
+    "clearance": 2,
+    "doc_id": "doc_0666"
+  },
+  {
+    "canary": "CANARY-L2-0667",
+    "clearance": 2,
+    "doc_id": "doc_0667"
+  },
+  {
+    "canary": "CANARY-L2-0668",
+    "clearance": 2,
+    "doc_id": "doc_0668"
+  },
+  {
+    "canary": "CANARY-L2-0669",
+    "clearance": 2,
+    "doc_id": "doc_0669"
+  },
+  {
+    "canary": "CANARY-L2-0670",
+    "clearance": 2,
+    "doc_id": "doc_0670"
+  },
+  {
+    "canary": "CANARY-L2-0671",
+    "clearance": 2,
+    "doc_id": "doc_0671"
+  },
+  {
+    "canary": "CANARY-L2-0672",
+    "clearance": 2,
+    "doc_id": "doc_0672"
+  },
+  {
+    "canary": "CANARY-L2-0673",
+    "clearance": 2,
+    "doc_id": "doc_0673"
+  },
+  {
+    "canary": "CANARY-L2-0674",
+    "clearance": 2,
+    "doc_id": "doc_0674"
+  },
+  {
+    "canary": "CANARY-L2-0675",
+    "clearance": 2,
+    "doc_id": "doc_0675"
+  },
+  {
+    "canary": "CANARY-L2-0676",
+    "clearance": 2,
+    "doc_id": "doc_0676"
+  },
+  {
+    "canary": "CANARY-L2-0677",
+    "clearance": 2,
+    "doc_id": "doc_0677"
+  },
+  {
+    "canary": "CANARY-L2-0678",
+    "clearance": 2,
+    "doc_id": "doc_0678"
+  },
+  {
+    "canary": "CANARY-L2-0679",
+    "clearance": 2,
+    "doc_id": "doc_0679"
+  },
+  {
+    "canary": "CANARY-L2-0680",
+    "clearance": 2,
+    "doc_id": "doc_0680"
+  },
+  {
+    "canary": "CANARY-L2-0681",
+    "clearance": 2,
+    "doc_id": "doc_0681"
+  },
+  {
+    "canary": "CANARY-L2-0682",
+    "clearance": 2,
+    "doc_id": "doc_0682"
+  },
+  {
+    "canary": "CANARY-L2-0683",
+    "clearance": 2,
+    "doc_id": "doc_0683"
+  },
+  {
+    "canary": "CANARY-L2-0684",
+    "clearance": 2,
+    "doc_id": "doc_0684"
+  },
+  {
+    "canary": "CANARY-L2-0685",
+    "clearance": 2,
+    "doc_id": "doc_0685"
+  },
+  {
+    "canary": "CANARY-L2-0686",
+    "clearance": 2,
+    "doc_id": "doc_0686"
+  },
+  {
+    "canary": "CANARY-L2-0687",
+    "clearance": 2,
+    "doc_id": "doc_0687"
+  },
+  {
+    "canary": "CANARY-L2-0688",
+    "clearance": 2,
+    "doc_id": "doc_0688"
+  },
+  {
+    "canary": "CANARY-L2-0689",
+    "clearance": 2,
+    "doc_id": "doc_0689"
+  },
+  {
+    "canary": "CANARY-L2-0690",
+    "clearance": 2,
+    "doc_id": "doc_0690"
+  },
+  {
+    "canary": "CANARY-L2-0691",
+    "clearance": 2,
+    "doc_id": "doc_0691"
+  },
+  {
+    "canary": "CANARY-L2-0692",
+    "clearance": 2,
+    "doc_id": "doc_0692"
+  },
+  {
+    "canary": "CANARY-L2-0693",
+    "clearance": 2,
+    "doc_id": "doc_0693"
+  },
+  {
+    "canary": "CANARY-L2-0694",
+    "clearance": 2,
+    "doc_id": "doc_0694"
+  },
+  {
+    "canary": "CANARY-L2-0695",
+    "clearance": 2,
+    "doc_id": "doc_0695"
+  },
+  {
+    "canary": "CANARY-L2-0696",
+    "clearance": 2,
+    "doc_id": "doc_0696"
+  },
+  {
+    "canary": "CANARY-L2-0697",
+    "clearance": 2,
+    "doc_id": "doc_0697"
+  },
+  {
+    "canary": "CANARY-L2-0698",
+    "clearance": 2,
+    "doc_id": "doc_0698"
+  },
+  {
+    "canary": "CANARY-L2-0699",
+    "clearance": 2,
+    "doc_id": "doc_0699"
+  },
+  {
+    "canary": "CANARY-L2-0700",
+    "clearance": 2,
+    "doc_id": "doc_0700"
+  },
+  {
+    "canary": "CANARY-L2-0701",
+    "clearance": 2,
+    "doc_id": "doc_0701"
+  },
+  {
+    "canary": "CANARY-L2-0702",
+    "clearance": 2,
+    "doc_id": "doc_0702"
+  },
+  {
+    "canary": "CANARY-L2-0703",
+    "clearance": 2,
+    "doc_id": "doc_0703"
+  },
+  {
+    "canary": "CANARY-L2-0704",
+    "clearance": 2,
+    "doc_id": "doc_0704"
+  },
+  {
+    "canary": "CANARY-L2-0705",
+    "clearance": 2,
+    "doc_id": "doc_0705"
+  },
+  {
+    "canary": "CANARY-L2-0706",
+    "clearance": 2,
+    "doc_id": "doc_0706"
+  },
+  {
+    "canary": "CANARY-L2-0707",
+    "clearance": 2,
+    "doc_id": "doc_0707"
+  },
+  {
+    "canary": "CANARY-L2-0708",
+    "clearance": 2,
+    "doc_id": "doc_0708"
+  },
+  {
+    "canary": "CANARY-L2-0709",
+    "clearance": 2,
+    "doc_id": "doc_0709"
+  },
+  {
+    "canary": "CANARY-L2-0710",
+    "clearance": 2,
+    "doc_id": "doc_0710"
+  },
+  {
+    "canary": "CANARY-L2-0711",
+    "clearance": 2,
+    "doc_id": "doc_0711"
+  },
+  {
+    "canary": "CANARY-L2-0712",
+    "clearance": 2,
+    "doc_id": "doc_0712"
+  },
+  {
+    "canary": "CANARY-L2-0713",
+    "clearance": 2,
+    "doc_id": "doc_0713"
+  },
+  {
+    "canary": "CANARY-L2-0714",
+    "clearance": 2,
+    "doc_id": "doc_0714"
+  },
+  {
+    "canary": "CANARY-L2-0715",
+    "clearance": 2,
+    "doc_id": "doc_0715"
+  },
+  {
+    "canary": "CANARY-L2-0716",
+    "clearance": 2,
+    "doc_id": "doc_0716"
+  },
+  {
+    "canary": "CANARY-L2-0717",
+    "clearance": 2,
+    "doc_id": "doc_0717"
+  },
+  {
+    "canary": "CANARY-L2-0718",
+    "clearance": 2,
+    "doc_id": "doc_0718"
+  },
+  {
+    "canary": "CANARY-L2-0719",
+    "clearance": 2,
+    "doc_id": "doc_0719"
+  },
+  {
+    "canary": "CANARY-L2-0720",
+    "clearance": 2,
+    "doc_id": "doc_0720"
+  },
+  {
+    "canary": "CANARY-L2-0721",
+    "clearance": 2,
+    "doc_id": "doc_0721"
+  },
+  {
+    "canary": "CANARY-L2-0722",
+    "clearance": 2,
+    "doc_id": "doc_0722"
+  },
+  {
+    "canary": "CANARY-L2-0723",
+    "clearance": 2,
+    "doc_id": "doc_0723"
+  },
+  {
+    "canary": "CANARY-L2-0724",
+    "clearance": 2,
+    "doc_id": "doc_0724"
+  },
+  {
+    "canary": "CANARY-L2-0725",
+    "clearance": 2,
+    "doc_id": "doc_0725"
+  },
+  {
+    "canary": "CANARY-L2-0726",
+    "clearance": 2,
+    "doc_id": "doc_0726"
+  },
+  {
+    "canary": "CANARY-L2-0727",
+    "clearance": 2,
+    "doc_id": "doc_0727"
+  },
+  {
+    "canary": "CANARY-L2-0728",
+    "clearance": 2,
+    "doc_id": "doc_0728"
+  },
+  {
+    "canary": "CANARY-L2-0729",
+    "clearance": 2,
+    "doc_id": "doc_0729"
+  },
+  {
+    "canary": "CANARY-L2-0730",
+    "clearance": 2,
+    "doc_id": "doc_0730"
+  },
+  {
+    "canary": "CANARY-L3-0731",
+    "clearance": 3,
+    "doc_id": "doc_0731"
+  },
+  {
+    "canary": "CANARY-L3-0732",
+    "clearance": 3,
+    "doc_id": "doc_0732"
+  },
+  {
+    "canary": "CANARY-L3-0733",
+    "clearance": 3,
+    "doc_id": "doc_0733"
+  },
+  {
+    "canary": "CANARY-L3-0734",
+    "clearance": 3,
+    "doc_id": "doc_0734"
+  },
+  {
+    "canary": "CANARY-L3-0735",
+    "clearance": 3,
+    "doc_id": "doc_0735"
+  },
+  {
+    "canary": "CANARY-L3-0736",
+    "clearance": 3,
+    "doc_id": "doc_0736"
+  },
+  {
+    "canary": "CANARY-L3-0737",
+    "clearance": 3,
+    "doc_id": "doc_0737"
+  },
+  {
+    "canary": "CANARY-L3-0738",
+    "clearance": 3,
+    "doc_id": "doc_0738"
+  },
+  {
+    "canary": "CANARY-L3-0739",
+    "clearance": 3,
+    "doc_id": "doc_0739"
+  },
+  {
+    "canary": "CANARY-L3-0740",
+    "clearance": 3,
+    "doc_id": "doc_0740"
+  },
+  {
+    "canary": "CANARY-L3-0741",
+    "clearance": 3,
+    "doc_id": "doc_0741"
+  },
+  {
+    "canary": "CANARY-L3-0742",
+    "clearance": 3,
+    "doc_id": "doc_0742"
+  },
+  {
+    "canary": "CANARY-L3-0743",
+    "clearance": 3,
+    "doc_id": "doc_0743"
+  },
+  {
+    "canary": "CANARY-L3-0744",
+    "clearance": 3,
+    "doc_id": "doc_0744"
+  },
+  {
+    "canary": "CANARY-L3-0745",
+    "clearance": 3,
+    "doc_id": "doc_0745"
+  },
+  {
+    "canary": "CANARY-L3-0746",
+    "clearance": 3,
+    "doc_id": "doc_0746"
+  },
+  {
+    "canary": "CANARY-L3-0747",
+    "clearance": 3,
+    "doc_id": "doc_0747"
+  },
+  {
+    "canary": "CANARY-L3-0748",
+    "clearance": 3,
+    "doc_id": "doc_0748"
+  },
+  {
+    "canary": "CANARY-L3-0749",
+    "clearance": 3,
+    "doc_id": "doc_0749"
+  },
+  {
+    "canary": "CANARY-L3-0750",
+    "clearance": 3,
+    "doc_id": "doc_0750"
+  }
+]
