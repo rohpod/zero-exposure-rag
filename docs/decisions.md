@@ -55,3 +55,14 @@ Record decisions that affect more than one person, plus surprises worth remember
 - Owner: Kishan (data and retrieval)
 - Affects: data/generate.py, retrieval filter queries, docs/schema.json
 
+### Per-tier BM25 indexes enforce clearance before ranking
+- Stage: 1
+- Decision: Build one BM25 index per clearance tier (tier N contains only chunks with clearance <= N). The tier is selected strictly from the authenticated role enum.
+- Why: Structural isolation by construction. A tier-1 index literally does not contain tier-2 or tier-3 chunk text or BM25 corpus statistics (IDF, average document length). Lower clearance roles cannot receive higher-clearance text even under prompt injection, canary queries, or search scoring edge cases.
+- Alternatives considered:
+  1. Single BM25 index with post-retrieval filtering (retrieve top-K, drop chunks where clearance > role_clearance). Rejected because: (a) top-K could be dominated by restricted documents, leaving fewer than K results for the user; (b) IDF statistics computed over restricted documents leak corpus frequency information across security boundaries; (c) post-filtering is an authorization layer on top of search rather than isolation by construction.
+  2. Single BM25 index with pre-filtering query filter. Rejected because rank-bm25 is an in-memory library without query filter predicates, and modifying its scoring loop adds complexity and overhead.
+  3. One BM25 index per clearance tier (chosen).
+- Owner: Kishan (data and retrieval)
+- Affects: retrieval/index.py, retrieval/retriever.py, app/pipeline.py (future wiring, Stage 2)
+
