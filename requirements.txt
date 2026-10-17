@@ -2,3 +2,5 @@ fastapi
 uvicorn[standard]
 pydantic
 llama-cpp-python
+pytest
+httpx

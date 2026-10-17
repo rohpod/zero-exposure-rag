@@ -29,7 +29,7 @@ def health():
 @app.post("/ask", response_model=AskResponse)
 def ask(
     body: AskRequest,
-    x_user_token: str = Header(...),
+    x_user_token: str | None = Header(default=None),
     x_guards: str | None = Header(default=None),
 ):
     try:
