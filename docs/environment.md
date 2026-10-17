@@ -42,13 +42,19 @@ Facts about the LinuxONE VM and our setup. Record what you observed, not what yo
 
 | Item | Value |
 |---|---|
-| Model and size | `granite-4.0-h-350m-base-be.f16.gguf`, approximately 653.2 MB |
-| Serving method (from the provided lab) | Preconfigured LinuxONE JupyterLab Docker image using `llama-cpp-python` 0.3.36 and `loan_demo.rag_utils` |
-| Time for a short prompt | Not yet measured separately |
-| Time for a long prompt | One test took 11.37 seconds for a prompt requesting up to 100 tokens; this is not a controlled benchmark |
+| Model and size | `granite-4.0-h-350m-base-be.f16.gguf`, approximately 654 MB, copied from the JupyterLab container to `~/zero-exposure-rag/models/` on the host |
+| Serving method | In-process via `llama-cpp-python` 0.3.36 in the project virtual environment, wrapped by `app/llm.py` (`generate(prompt, max_tokens, temperature)`); `n_ctx=2048` |
+| Time for a short prompt | 2.58s for a prompt requesting up to 20 tokens (temperature 0) |
+| Time for a long prompt | 104.19s for a prompt requesting up to 200 tokens (temperature 0); this is slow and may need a fallback (smaller/more quantised model, fewer max tokens) before the demo |
 
 ## Known problems
 
 - The project virtual environment uses system packages (`--system-site-packages`) because installing scientific Python dependencies through pip failed in this environment.
-- The model loads and generates text in the provided JupyterLab container. zDNN acceleration has not been independently verified.
-- The reference model environment is inside the JupyterLab container. Direct integration between that environment and the project virtual environment on the VM has not yet been verified.
+- `llama-cpp-python` failed to build with pip's default CMake auto-detection (`-march=arch15`, which this GCC does not support). Fixed by forcing `CMAKE_ARGS="-DGGML_NATIVE=OFF -DCMAKE_C_FLAGS=-march=z16 -DCMAKE_CXX_FLAGS=-march=z16"`.
+- The model has been verified to load and generate correctly in-process (outside the JupyterLab container) via `app/llm.py`. zDNN/NNPA acceleration has not been independently verified; the CPU backend variant selected by the build is `-march=arch15;-mvx;-mzvector` reported at build time, despite the compile flags above, so this should not be read as confirmation of any particular acceleration path.
+- Long-prompt latency (104s for 200 tokens) is a concern for the live demo and needs a fallback decision before Stage 3 (see PROJECT.docx fallback table: smaller/more quantised model, fewer max tokens, fewer retrieved chunks).
+
+## Installing llama-cpp-python on this VM
+
+Plain `pip install llama-cpp-python` fails here: pip's CMake auto-detection selects `-march=arch15`, which this GCC does not support (max is `z16`/`arch14`). Install with:
+CMAKE_ARGS="-DGGML_NATIVE=OFF -DCMAKE_C_FLAGS=-march=z16 -DCMAKE_CXX_FLAGS=-march=z16" pip install llama-cpp-python --no-cache-dir
