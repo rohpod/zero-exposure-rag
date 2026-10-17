@@ -1,0 +1,8 @@
+{
+  "tok_support_01": {"user_id": "u_support_01", "role": "support_agent"},
+  "tok_support_02": {"user_id": "u_support_02", "role": "support_agent"},
+  "tok_fraud_01": {"user_id": "u_fraud_01", "role": "fraud_analyst"},
+  "tok_fraud_02": {"user_id": "u_fraud_02", "role": "fraud_analyst"},
+  "tok_compliance_01": {"user_id": "u_compliance_01", "role": "compliance_officer"},
+  "tok_compliance_02": {"user_id": "u_compliance_02", "role": "compliance_officer"}
+}
