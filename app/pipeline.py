@@ -2,9 +2,12 @@
 Orchestrates the /ask request through the seven pipeline steps, in order:
 auth -> input guard -> retrieval -> LLM -> output guard -> audit -> response.
 
-In STUB_MODE, retrieval, the LLM and the guards return canned values from
-app.stub_data. Each step is called behind its interface so a stub can be
-swapped for the real implementation with a one-line change here.
+In STUB_MODE, retrieval, the LLM and the guards all return canned values
+from app.stub_data. When STUB_MODE is off, the LLM step calls the real
+Granite model via app.llm; retrieval and guards are still stubbed until
+those tracks land (see docs/decisions.md). Each step is called behind its
+interface so a stub can be swapped for the real implementation with a
+one-line change here.
 
 Every request writes exactly one audit row, including auth failures.
 
@@ -14,12 +17,14 @@ False regardless of what the header says. This is a security invariant
 (see PLAN.docx and docs/decisions.md).
 """
 import datetime
+import time
 import uuid
 
 from app.audit import write_row
 from app.auth import AuthError, resolve_token
 from app.config import EVAL_MODE, STUB_MODE
-from app.stub_data import STUB_ANSWER, STUB_GUARDS, STUB_LATENCY_MS, STUB_SOURCES
+from app.llm import generate
+from app.stub_data import STUB_GUARDS, STUB_SOURCES
 
 
 class PipelineAuthError(Exception):
@@ -38,6 +43,72 @@ def resolve_guards_disabled(x_guards_header: str | None) -> bool:
     if not EVAL_MODE:
         return False
     return (x_guards_header or "").strip().lower() == "off"
+
+
+def _answer_with_stub(request_id, user_id, role, query, guards_disabled) -> dict:
+    from app.stub_data import STUB_ANSWER, STUB_LATENCY_MS
+
+    write_row(
+        request_id=request_id,
+        timestamp=_now(),
+        user_id=user_id,
+        role=role,
+        query=query,
+        decision="answered",
+        retrieved_doc_ids=STUB_SOURCES,
+        redaction_count=STUB_GUARDS["output"]["redactions"],
+        latency_ms=STUB_LATENCY_MS,
+    )
+    return {
+        "request_id": request_id,
+        "answer": STUB_ANSWER,
+        "blocked": False,
+        "block_reason": None,
+        "sources": STUB_SOURCES,
+        "guards": STUB_GUARDS,
+        "latency_ms": STUB_LATENCY_MS,
+        "guards_disabled": guards_disabled,
+    }
+
+
+def _answer_with_real_llm(request_id, user_id, role, query, guards_disabled) -> dict:
+    # Retrieval and guards are still stubbed; only the LLM step is real.
+    # 1. input guard -> STUB_GUARDS["input"] (stub)
+    # 2. retrieval   -> STUB_SOURCES (stub)
+    # 3. LLM         -> real generate() call
+    # 4. output guard -> STUB_GUARDS["output"] (stub)
+    t0 = time.monotonic()
+    answer = generate(query, max_tokens=200, temperature=0.0)
+    llm_latency_ms = int((time.monotonic() - t0) * 1000)
+
+    latency_ms = {
+        "input_guard": 1,
+        "retrieval": 1,
+        "llm": llm_latency_ms,
+        "output_guard": 1,
+    }
+
+    write_row(
+        request_id=request_id,
+        timestamp=_now(),
+        user_id=user_id,
+        role=role,
+        query=query,
+        decision="answered",
+        retrieved_doc_ids=STUB_SOURCES,
+        redaction_count=STUB_GUARDS["output"]["redactions"],
+        latency_ms=latency_ms,
+    )
+    return {
+        "request_id": request_id,
+        "answer": answer,
+        "blocked": False,
+        "block_reason": None,
+        "sources": STUB_SOURCES,
+        "guards": STUB_GUARDS,
+        "latency_ms": latency_ms,
+        "guards_disabled": guards_disabled,
+    }
 
 
 def run_pipeline(query: str, token: str, x_guards_header: str | None = None) -> dict:
@@ -70,35 +141,6 @@ def run_pipeline(query: str, token: str, x_guards_header: str | None = None) -> 
     user_id = identity["user_id"]
 
     if STUB_MODE:
-        # Step order below mirrors the real pipeline even in stub mode,
-        # so later swapping in real components does not change this shape.
-        # 1. input guard -> STUB_GUARDS["input"]
-        # 2. retrieval   -> STUB_SOURCES
-        # 3. LLM         -> STUB_ANSWER
-        # 4. output guard -> STUB_GUARDS["output"]
-        # guards_disabled has no effect yet since guards are stubbed; it is
-        # threaded through now so the contract is testable before the real
-        # guards land.
-        write_row(
-            request_id=request_id,
-            timestamp=_now(),
-            user_id=user_id,
-            role=role,
-            query=query,
-            decision="answered",
-            retrieved_doc_ids=STUB_SOURCES,
-            redaction_count=STUB_GUARDS["output"]["redactions"],
-            latency_ms=STUB_LATENCY_MS,
-        )
-        return {
-            "request_id": request_id,
-            "answer": STUB_ANSWER,
-            "blocked": False,
-            "block_reason": None,
-            "sources": STUB_SOURCES,
-            "guards": STUB_GUARDS,
-            "latency_ms": STUB_LATENCY_MS,
-            "guards_disabled": guards_disabled,
-        }
+        return _answer_with_stub(request_id, user_id, role, query, guards_disabled)
 
-    raise NotImplementedError("Real pipeline not yet implemented. Set STUB_MODE=1.")
+    return _answer_with_real_llm(request_id, user_id, role, query, guards_disabled)
