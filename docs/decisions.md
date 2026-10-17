@@ -22,3 +22,19 @@ Record decisions that affect more than one person, plus surprises worth remember
 - Alternatives considered: none, this is fixed by the project interfaces document.
 - Owner: Rohan
 - Affects: Kaustubh (guards), Kashvith (red-team harness)
+
+### Granite model served in-process, not via the notebook container
+- Stage: 1
+- Decision: app/llm.py loads the Granite GGUF model directly in the FastAPI process using llama-cpp-python, after copying the model file out of the JupyterLab container to models/ on the host. The notebook/container is kept only as the original reference, not used for serving.
+- Why: the JupyterLab container exposes no serving API, only an interactive notebook; in-process loading is simplest for a 24-hour build and matches PLAN.docx's fallback philosophy.
+- Alternatives considered: calling into the notebook container somehow (rejected, no exposed API, fragile); running a separate model-serving process (rejected, unnecessary complexity for this scale).
+- Owner: Rohan
+- Affects: everyone (this is the generate() interface retrieval/pipeline build against); Kashvith (latency numbers matter for demo pacing)
+
+### Long-prompt latency is high, needs a decision before Stage 3
+- Stage: 1
+- Decision: not yet made. Measured 2.58s for a 20-token completion and 104.19s for a 200-token completion, both at temperature 0, on this VM's 3 CPU cores. This is too slow for a live demo if many turns need ~200 tokens.
+- Why: CPU-only, modest core count, and this is a non-quantised f16 model.
+- Alternatives considered: not yet evaluated. Candidates per PROJECT.docx fallback table: a smaller/more quantised model, lower max_tokens, fewer retrieved chunks.
+- Owner: Rohan
+- Affects: Kashvith (demo script timing), whole team (Stage 3 measurement latency numbers)
