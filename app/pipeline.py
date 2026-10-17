@@ -23,6 +23,7 @@ import uuid
 from app.audit import write_row
 from app.auth import AuthError, resolve_token
 from app.config import EVAL_MODE, STUB_MODE
+from app.guards.injection import scan_input
 from app.llm import generate
 from app.stub_data import STUB_GUARDS, STUB_SOURCES
 from retrieval.index import build_index, load_documents
@@ -85,8 +86,45 @@ def _answer_with_stub(request_id, user_id, role, query, guards_disabled) -> dict
 
 
 def _answer_with_real_llm(request_id, user_id, role, query, guards_disabled) -> dict:
-    # Guards are still stubbed; retrieval and LLM are real.
-    # 1. input guard -> STUB_GUARDS["input"] (stub)
+    # 1. input guard -> real scan_input() call
+    t_input_guard_0 = time.monotonic()
+    input_result = scan_input(query)
+    input_guard_latency_ms = int((time.monotonic() - t_input_guard_0) * 1000)
+
+    # Check for blocking condition if guards are not disabled
+    if not guards_disabled and input_result.get("label") in ("injection", "exfil"):
+        latency_ms = {
+            "input_guard": input_guard_latency_ms,
+            "retrieval": 0,
+            "llm": 0,
+            "output_guard": 0,
+        }
+        write_row(
+            request_id=request_id,
+            timestamp=_now(),
+            user_id=user_id,
+            role=role,
+            query=query,
+            decision="blocked_input",
+            block_reason="input_guard",
+            retrieved_doc_ids=[],
+            redaction_count=0,
+            latency_ms=latency_ms,
+        )
+        return {
+            "request_id": request_id,
+            "answer": "",
+            "blocked": True,
+            "block_reason": "input_guard",
+            "sources": [],
+            "guards": {
+                "input": input_result,
+                "output": STUB_GUARDS["output"],
+            },
+            "latency_ms": latency_ms,
+            "guards_disabled": guards_disabled,
+        }
+
     # 2. retrieval   -> real retrieve() call with clearance filtering
     t_retrieval_0 = time.monotonic()
     results = retrieve(query, role, k=3, index=_get_index())
@@ -106,8 +144,12 @@ def _answer_with_real_llm(request_id, user_id, role, query, guards_disabled) -> 
     llm_latency_ms = int((time.monotonic() - t_llm_0) * 1000)
 
     # 4. output guard -> STUB_GUARDS["output"] (stub)
+    guards = {
+        "input": input_result,
+        "output": STUB_GUARDS["output"],
+    }
     latency_ms = {
-        "input_guard": 1,
+        "input_guard": input_guard_latency_ms,
         "retrieval": retrieval_latency_ms,
         "llm": llm_latency_ms,
         "output_guard": 1,
@@ -130,7 +172,7 @@ def _answer_with_real_llm(request_id, user_id, role, query, guards_disabled) -> 
         "blocked": False,
         "block_reason": None,
         "sources": retrieved_doc_ids,
-        "guards": STUB_GUARDS,
+        "guards": guards,
         "latency_ms": latency_ms,
         "guards_disabled": guards_disabled,
     }
