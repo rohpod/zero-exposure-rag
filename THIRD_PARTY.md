@@ -4,7 +4,7 @@ Every library, model, dataset and tool we use is listed here. Add a row as soon 
 
 | Name | Type | Version | Licence | Link | Used for | Added by |
 |---|---|---|---|---|---|---|
-| | | | | | | |
+| deepset/prompt-injections | dataset | — | Apache-2.0 | https://huggingface.co/datasets/deepset/prompt-injections | Training data for prompt-injection classifier (injection vs. benign text) | Kaustubh |
 
 Types: library, model, dataset, tool.
 
