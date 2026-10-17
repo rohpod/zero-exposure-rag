@@ -181,3 +181,62 @@ def test_audit_storage_supports_all_decision_types(client, decision):
 
     rows = audit.read_latest()
     assert any(row["decision"] == decision for row in rows)
+
+
+def test_pipeline_real_retrieval_when_stub_mode_disabled(client, monkeypatch):
+    from retrieval.retriever import retrieve
+
+    captured_prompts = []
+
+    def mock_generate(prompt, max_tokens=200, temperature=0.0):
+        captured_prompts.append(prompt)
+        return "Synthetic LLM answer grounded in retrieved context."
+
+    monkeypatch.setattr(pipeline, "STUB_MODE", False)
+    monkeypatch.setattr(pipeline, "generate", mock_generate)
+    monkeypatch.setattr(
+        pipeline,
+        "resolve_token",
+        lambda token: (
+            {"user_id": "test-analyst", "role": "fraud_analyst"}
+            if token == "valid-test-token"
+            else (_ for _ in ()).throw(pipeline.AuthError("invalid token"))
+        ),
+    )
+
+    query = "wire transfer suspicious fraud"
+    response = client.post(
+        "/ask",
+        headers={"X-User-Token": "valid-test-token"},
+        json={"query": query},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+
+    # sources returned matches doc_ids from real retrieval (not STUB_SOURCES)
+    expected_docs = retrieve(query, "fraud_analyst", k=3)
+    expected_doc_ids = [d["doc_id"] for d in expected_docs]
+    assert body["sources"] == expected_doc_ids
+    assert body["sources"] != pipeline.STUB_SOURCES
+    assert len(body["sources"]) > 0
+    assert all(isinstance(doc_id, str) for doc_id in body["sources"])
+
+    # retrieved_doc_ids in audit log matches sources
+    rows = audit.read_latest()
+    assert len(rows) == 1
+    assert rows[0]["retrieved_doc_ids"] == body["sources"]
+
+    # latency_ms['retrieval'] is recorded (int >= 0)
+    assert "retrieval" in body["latency_ms"]
+    assert isinstance(body["latency_ms"]["retrieval"], int)
+    assert body["latency_ms"]["retrieval"] >= 0
+
+    # prompt passed to generate() actually contains the retrieved text
+    assert len(captured_prompts) == 1
+    prompt = captured_prompts[0]
+    assert "Context:\n" in prompt
+    assert f"Question: {query}" in prompt
+    for doc in expected_docs:
+        assert doc["text"] in prompt
+

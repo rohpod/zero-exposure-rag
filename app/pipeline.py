@@ -25,6 +25,19 @@ from app.auth import AuthError, resolve_token
 from app.config import EVAL_MODE, STUB_MODE
 from app.llm import generate
 from app.stub_data import STUB_GUARDS, STUB_SOURCES
+from retrieval.index import build_index, load_documents
+from retrieval.retriever import retrieve
+
+_index: dict | None = None
+
+
+def _get_index() -> dict:
+    """Lazy module-level index loading, mirroring app.llm._get_llm() pattern."""
+    global _index
+    if _index is None:
+        docs = load_documents()
+        _index = build_index(docs)
+    return _index
 
 
 class PipelineAuthError(Exception):
@@ -72,18 +85,30 @@ def _answer_with_stub(request_id, user_id, role, query, guards_disabled) -> dict
 
 
 def _answer_with_real_llm(request_id, user_id, role, query, guards_disabled) -> dict:
-    # Retrieval and guards are still stubbed; only the LLM step is real.
+    # Guards are still stubbed; retrieval and LLM are real.
     # 1. input guard -> STUB_GUARDS["input"] (stub)
-    # 2. retrieval   -> STUB_SOURCES (stub)
-    # 3. LLM         -> real generate() call
-    # 4. output guard -> STUB_GUARDS["output"] (stub)
-    t0 = time.monotonic()
-    answer = generate(query, max_tokens=200, temperature=0.0)
-    llm_latency_ms = int((time.monotonic() - t0) * 1000)
+    # 2. retrieval   -> real retrieve() call with clearance filtering
+    t_retrieval_0 = time.monotonic()
+    results = retrieve(query, role, k=3, index=_get_index())
+    retrieval_latency_ms = int((time.monotonic() - t_retrieval_0) * 1000)
+    retrieved_doc_ids = [doc["doc_id"] for doc in results]
 
+    # Build prompt including retrieved context alongside query
+    if results:
+        context_text = "\n\n".join(doc["text"] for doc in results)
+        prompt = f"Context:\n{context_text}\n\nQuestion: {query}"
+    else:
+        prompt = query
+
+    # 3. LLM         -> real generate() call with context
+    t_llm_0 = time.monotonic()
+    answer = generate(prompt, max_tokens=200, temperature=0.0)
+    llm_latency_ms = int((time.monotonic() - t_llm_0) * 1000)
+
+    # 4. output guard -> STUB_GUARDS["output"] (stub)
     latency_ms = {
         "input_guard": 1,
-        "retrieval": 1,
+        "retrieval": retrieval_latency_ms,
         "llm": llm_latency_ms,
         "output_guard": 1,
     }
@@ -95,7 +120,7 @@ def _answer_with_real_llm(request_id, user_id, role, query, guards_disabled) -> 
         role=role,
         query=query,
         decision="answered",
-        retrieved_doc_ids=STUB_SOURCES,
+        retrieved_doc_ids=retrieved_doc_ids,
         redaction_count=STUB_GUARDS["output"]["redactions"],
         latency_ms=latency_ms,
     )
@@ -104,7 +129,7 @@ def _answer_with_real_llm(request_id, user_id, role, query, guards_disabled) -> 
         "answer": answer,
         "blocked": False,
         "block_reason": None,
-        "sources": STUB_SOURCES,
+        "sources": retrieved_doc_ids,
         "guards": STUB_GUARDS,
         "latency_ms": latency_ms,
         "guards_disabled": guards_disabled,
