@@ -38,3 +38,11 @@ Record decisions that affect more than one person, plus surprises worth remember
 - Alternatives considered: not yet evaluated. Candidates per PROJECT.docx fallback table: a smaller/more quantised model, lower max_tokens, fewer retrieved chunks.
 - Owner: Rohan
 - Affects: Kashvith (demo script timing), whole team (Stage 3 measurement latency numbers)
+
+### PII name detection fallback
+- Stage: 1
+- Decision: use a word-list (250+ names) plus honorific/title context (Mr., Ms., Dr., "Customer", "Name:") instead of an NER library for first_name detection, with stop-word protection against ambiguous capitalized words (May, Will, Mark).
+- Why: no NER library has been tested on the s390x VM yet, and scikit-learn already failed to pip-install there (needed the Ubuntu system package instead). Avoiding a similarly risky dependency for name detection this early, when regex/word-list has zero install risk and ships now.
+- Alternatives considered: spaCy or a Hugging Face NER model (not yet tested on s390x, deferred as a possible upgrade if time permits); Presidio (same risk, not attempted).
+- Owner: Kaustubh
+- Affects: Kaustubh (PII detection recall on names, the weakest part of the detector per the project's own limitations list); whole team (README/limitations section, since this is an honestly-reported weakness, not a hidden one)
