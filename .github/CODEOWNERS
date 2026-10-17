@@ -1,0 +1,14 @@
+# Each path is owned for review purposes by the REVIEW PARTNER of the track that builds it.
+# Platform (Member 1) is reviewed by Member 2. Data and retrieval (Member 2) by Member 1.
+# Guards (Member 3) by Member 4. Red team and product (Member 4) by Member 3.
+
+*                   @rohpod
+/app/               @anskishan
+/Dockerfile         @anskishan
+/data/              @rohpod
+/retrieval/         @rohpod
+/guards/            @kash-0825
+/redteam/           @kaus1201
+/dashboard/         @kaus1201
+/README.md          @kaus1201
+/docs/              @rohpod

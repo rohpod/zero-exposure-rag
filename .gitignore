@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.coverage
+htmlcov/
+
+# Secrets and local config. Never commit these.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+*.token
+secrets/
+*.local.json
+*.local.yaml
+*.local.yml
+config.local.*
+
+# Models. Weights are large and the classifier is retrained on the VM.
+models/
+*.gguf
+*.safetensors
+*.onnx
+*.pkl
+*.joblib
+
+# Generated data and databases
+data/generated/
+*.sqlite
+*.sqlite3
+*.db
+
+# Raw evaluation dumps. Frozen final results are committed on purpose.
+redteam/raw/
+
+# Logs and temporary files
+*.log
+tmp/
+.tmp/
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
