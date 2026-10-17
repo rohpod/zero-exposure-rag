@@ -61,7 +61,8 @@ def retrieve(
     if index is None:
         global _default_index
         if _default_index is None:
-            _default_index = build_index(load_documents())
+            _default_index = build_index(load_documents(include_poisoned=False))
+
         index = _default_index
 
     tier = ROLE_MAX_CLEARANCE[role]
