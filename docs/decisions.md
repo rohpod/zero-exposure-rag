@@ -108,3 +108,57 @@ Record decisions that affect more than one person, plus surprises worth remember
 - Alternatives considered: none.
 - Owner: Kishan (data and retrieval)
 - Affects: retrieval/retriever.py, README results section
+
+### Retrieval-only leak check on dev attacks
+- Stage: 3
+- Decision: add retrieval/leak_check.py, which runs the dev-split attacks through retrieve() per role and reports clearance violations, restricted canaries in returned chunks and the zero-result rate; it refuses test-split records in code.
+- Why: gives an early, LLM-free diagnostic of retrieval problems and enforces the tune-on-dev rule; leak counts are expected to be 0 by construction (per-tier indexes), so the useful signal is the zero-result rate. These results are diagnostic only and are not headline numbers.
+- Alternatives considered: running the attacks only through the full pipeline (rejected for this purpose: slower and blocked until integration is complete); importing redteam.run_suite.load_attacks (rejected: it would couple a retrieval tool to the red-team harness and its network dependency).
+- Owner: Kishan (data and retrieval)
+- Affects: retrieval/leak_check.py, tests/retrieval/test_leak_check.py
+
+### Real guard metadata returned with raw answer when guards_disabled
+- Stage: 2
+- Decision: guards_disabled (EVAL_MODE=1 + X-Guards: off) returns the REAL guard results (scan_input/scan_output labels, scores, reasons, redaction_count) in the response even when not blocking/redacting — but the answer field itself is the raw unredacted LLM output in this mode, not the guard-filtered text. This lets eval runs measure true attack success / leakage rather than guard-filtered output, while still reporting what the guards would have done.
+- Affects: anyone reading /ask responses during eval runs — do not confuse guards_disabled=true response shape with the guards-on shape; anyone building the dashboard (swap 5) needs to handle this distinction when displaying guard decisions.
+
+### scan_output extended to return redaction_count
+- Stage: 2
+- Decision: scan_output() in app/guards/output_guard.py was extended to return a "redaction_count" field (derived from pii.redact()'s internal "found" list, which scan_output previously discarded). This was a minimal interface completion, not a logic change — canary detection, verbatim-chunk detection, and redaction behaviour are unchanged. redaction_count is always 0 in the blocked branch (text is wiped before redaction would apply).
+- Affects: anyone computing PII-leakage metrics in Stage 3 — do not sum redaction_count across blocked and answered rows as if they mean the same thing; a blocked row's 0 doesn't mean no PII was present, it means the question is moot because the response was fully suppressed.
+
+### Sources empty on blocked_input, populated on blocked_output
+- Stage: 2
+- Decision: sources differs between blocked_input (always []) and blocked_output (retrieved_doc_ids, non-empty) in the API response and audit log. This is intentional: an input-guard block happens before retrieval runs, so there are no sources; an output-guard block happens after retrieval and generation, so the retrieved docs are legitimately part of the audit trail even though the answer was suppressed.
+- Affects: anyone reading audit logs or building dashboard filters (swap 5) — an empty sources list does not always mean "nothing was retrieved," check decision/block_reason to distinguish.
+
+### Small eval dry run for early Stage 3 harness validation
+- Stage: 3 (measurement, early)
+- Decision: time-constrained Stage 3 dry run used a small eval (5 attacks per category = 25, plus 15 benign queries) instead of the full dev split (150 attacks + 60 benign) due to real-time constraints from the 34-81s per-query LLM latency making a full run take several hours. This was a deliberate tradeoff to validate the red-team harness wiring (guards-off vs guards-on preflight check, scoring pipeline, quotability) quickly, NOT a substitute for the actual Stage 3 measurement, which still requires the full dev split for tuning and the full test split for frozen headline numbers.
+- Affects: anyone reading early results.json output from this run — these numbers are a sanity check only, not quotable Stage 3 results. State this explicitly if these numbers are shown to anyone before the full run completes.
+
+## B1 — Repository secret scan (Stage 4 prep)
+- Ran gitleaks on full git history (65 commits) and current working tree: no secrets found.
+- Manually grepped full history for GitHub PAT patterns (`github_pat_`, `ghp_`): none found.
+- .gitignore reviewed and confirmed to already exclude: .env*, *.pem/*.key/id_rsa*/id_ed25519*/*.token, secrets/, model weights (models/, *.gguf, *.safetensors, *.onnx, *.pkl, *.joblib), data/generated/, *.sqlite*, redteam/raw/.
+- No changes needed to .gitignore or repo history.
+
+## B3 — EVAL_MODE / X-Guards default-off confirmation (Stage 4 prep)
+- app/config.py: EVAL_MODE = os.getenv("EVAL_MODE", "0") == "1" — defaults to off.
+- app/pipeline.py resolve_guards_disabled(): returns False immediately if EVAL_MODE
+  is falsy, before inspecting the X-Guards header. Header has zero effect unless
+  EVAL_MODE=1 is explicitly set.
+- Confirmed by reading source directly (app/config.py, app/pipeline.py lines ~53-58).
+  No code changes required. Satisfies A1 (same check) as well.
+
+## B4/B5 — THIRD_PARTY.md source verification (Stage 4 prep)
+- B4 (retrieval): Faker and rank_bm25 both correctly listed and match actual usage. No gaps.
+- B5 (guards): deepset/prompt-injections listed correctly. Found gap: scikit-learn
+  (TfidfVectorizer, LogisticRegression, classification_report, train_test_split in
+  app/guards/train_injection.py) was missing — added as a new row (v1.4.1.post1,
+  BSD-3-Clause, installed via apt/python3-sklearn on VM due to s390x pip build failures).
+- PII name detection (app/guards/pii.py) uses a hardcoded word-list, not an external
+  dataset — nothing to add there.
+- Flagged separately, not fixed now: llama-cpp-python and the Granite GGUF model are not
+  in THIRD_PARTY.md either — out of scope for B4/B5 (platform, not retrieval/guards),
+  needs its own pass.

@@ -110,7 +110,11 @@
   .tag.answered { background: rgba(63,185,80,.15); color: var(--safe); }
   .tag.blocked { background: rgba(248,81,73,.15); color: var(--leak); }
   .live-answer .answer-text { color: var(--text-dim); margin-bottom: 8px; }
+
   .live-answer .meta { color: var(--text-dim); font-family: var(--mono); font-size: 11px; }
+
+  .live-answer .meta { color: var(--text-dim); font-family: var(--mono); font-size: 11px; line-height: 1.4; word-break: break-word; }
+
 
   /* --- Main --- */
   main { padding: 28px 32px; max-width: 1040px; }
@@ -385,6 +389,15 @@ function renderAudit(rows) {
     </tr>`).join("");
 }
 
+
+async function refreshAudit() {
+  const audit = await fetchJSON("/audit?limit=20");
+  if (audit) {
+    renderAudit(Array.isArray(audit) ? audit : audit.rows || []);
+  }
+}
+
+
 async function loadDashboard() {
   const results = (await fetchJSON("results.json")) || FALLBACK_RESULTS;
   const audit = (await fetchJSON("/audit?limit=20")) || FALLBACK_AUDIT;
@@ -392,6 +405,21 @@ async function loadDashboard() {
   renderChart(results);
   renderAudit(Array.isArray(audit) ? audit : audit.rows || FALLBACK_AUDIT);
 }
+
+
+const ROLE_EXAMPLES = {
+  support_agent: "What is the policy for disputing a card transaction?",
+  fraud_analyst: "Summarize the case note for the fraud review opened on customer c_033.",
+  compliance_officer: "Summarize the compliance report for customer c_077.",
+};
+
+document.getElementById("role").addEventListener("change", (e) => {
+  const example = ROLE_EXAMPLES[e.target.value];
+  if (example) {
+    document.getElementById("query").value = example;
+  }
+});
+
 
 document.getElementById("sendBtn").addEventListener("click", async () => {
   const token = document.getElementById("token").value.trim();
@@ -406,6 +434,7 @@ document.getElementById("sendBtn").addEventListener("click", async () => {
       headers: { "Content-Type": "application/json", "X-User-Token": token },
       body: JSON.stringify({ query }),
     });
+
     const body = await r.json();
     const box = document.getElementById("liveAnswer");
     const tag = document.getElementById("liveTag");
@@ -415,15 +444,62 @@ document.getElementById("sendBtn").addEventListener("click", async () => {
     document.getElementById("liveText").textContent = body.answer || "(no answer)";
     document.getElementById("liveMeta").textContent =
       `sources: ${(body.sources || []).join(", ") || "none"} · latency: ${body.latency_ms?.llm ?? "—"}ms`;
+
+    const body = await r.json().catch(() => ({}));
+    const box = document.getElementById("liveAnswer");
+    const tag = document.getElementById("liveTag");
+    box.classList.add("show");
+
+    if (!r.ok) {
+      tag.textContent = `request failed (HTTP ${r.status})`;
+      tag.className = "tag blocked";
+      document.getElementById("liveText").textContent = body.detail || "(server error)";
+      document.getElementById("liveMeta").textContent = "";
+      return;
+    }
+
+    tag.textContent = body.blocked ? `blocked — ${body.block_reason}` : "answered";
+    tag.className = "tag " + (body.blocked ? "blocked" : "answered");
+    document.getElementById("liveText").textContent = body.answer || "(no answer)";
+
+    let latStr = "—";
+    if (typeof body.latency_ms === "number") {
+      latStr = `${body.latency_ms}ms`;
+    } else if (body.latency_ms && typeof body.latency_ms === "object") {
+      const l = body.latency_ms;
+      latStr = `in=${l.input_guard ?? "—"}ms ret=${l.retrieval ?? "—"}ms llm=${l.llm ?? "—"}ms out=${l.output_guard ?? "—"}ms`;
+    }
+
+    const inLabel = body.guards?.input?.label ?? "—";
+    const inScore = body.guards?.input?.score !== undefined
+      ? (typeof body.guards.input.score === "number" ? body.guards.input.score.toFixed(2) : body.guards.input.score)
+      : "—";
+    const outRedact = body.guards?.output?.redaction_count ?? body.guards?.output?.redactions ?? "—";
+    const outReasons = body.guards?.output?.reasons?.length ? ` [${body.guards.output.reasons.join(", ")}]` : "";
+
+    document.getElementById("liveMeta").textContent =
+      `sources: ${(body.sources || []).join(", ") || "none"} · ` +
+      `latency: ${latStr} · ` +
+      `input: ${inLabel} (${inScore}) · ` +
+      `output redactions: ${outRedact}${outReasons}`;
+
   } catch (e) {
     const box = document.getElementById("liveAnswer");
     box.classList.add("show");
     document.getElementById("liveTag").textContent = "request failed";
     document.getElementById("liveTag").className = "tag blocked";
     document.getElementById("liveText").textContent = String(e);
+
   } finally {
     btn.disabled = false;
     btn.textContent = "Ask";
+
+    document.getElementById("liveMeta").textContent = "";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Ask";
+    refreshAudit();
+
   }
 });
 
