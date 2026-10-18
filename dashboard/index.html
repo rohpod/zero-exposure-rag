@@ -435,16 +435,6 @@ document.getElementById("sendBtn").addEventListener("click", async () => {
       body: JSON.stringify({ query }),
     });
 
-    const body = await r.json();
-    const box = document.getElementById("liveAnswer");
-    const tag = document.getElementById("liveTag");
-    box.classList.add("show");
-    tag.textContent = body.blocked ? `blocked — ${body.block_reason}` : "answered";
-    tag.className = "tag " + (body.blocked ? "blocked" : "answered");
-    document.getElementById("liveText").textContent = body.answer || "(no answer)";
-    document.getElementById("liveMeta").textContent =
-      `sources: ${(body.sources || []).join(", ") || "none"} · latency: ${body.latency_ms?.llm ?? "—"}ms`;
-
     const body = await r.json().catch(() => ({}));
     const box = document.getElementById("liveAnswer");
     const tag = document.getElementById("liveTag");
@@ -490,11 +480,6 @@ document.getElementById("sendBtn").addEventListener("click", async () => {
     document.getElementById("liveTag").className = "tag blocked";
     document.getElementById("liveText").textContent = String(e);
 
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Ask";
-
-    document.getElementById("liveMeta").textContent = "";
   } finally {
     btn.disabled = false;
     btn.textContent = "Ask";
