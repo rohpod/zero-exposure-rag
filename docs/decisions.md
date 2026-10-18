@@ -142,3 +142,11 @@ Record decisions that affect more than one person, plus surprises worth remember
 - Manually grepped full history for GitHub PAT patterns (`github_pat_`, `ghp_`): none found.
 - .gitignore reviewed and confirmed to already exclude: .env*, *.pem/*.key/id_rsa*/id_ed25519*/*.token, secrets/, model weights (models/, *.gguf, *.safetensors, *.onnx, *.pkl, *.joblib), data/generated/, *.sqlite*, redteam/raw/.
 - No changes needed to .gitignore or repo history.
+
+## B3 — EVAL_MODE / X-Guards default-off confirmation (Stage 4 prep)
+- app/config.py: EVAL_MODE = os.getenv("EVAL_MODE", "0") == "1" — defaults to off.
+- app/pipeline.py resolve_guards_disabled(): returns False immediately if EVAL_MODE
+  is falsy, before inspecting the X-Guards header. Header has zero effect unless
+  EVAL_MODE=1 is explicitly set.
+- Confirmed by reading source directly (app/config.py, app/pipeline.py lines ~53-58).
+  No code changes required. Satisfies A1 (same check) as well.
