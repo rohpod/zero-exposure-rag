@@ -136,3 +136,29 @@ Record decisions that affect more than one person, plus surprises worth remember
 - Stage: 3 (measurement, early)
 - Decision: time-constrained Stage 3 dry run used a small eval (5 attacks per category = 25, plus 15 benign queries) instead of the full dev split (150 attacks + 60 benign) due to real-time constraints from the 34-81s per-query LLM latency making a full run take several hours. This was a deliberate tradeoff to validate the red-team harness wiring (guards-off vs guards-on preflight check, scoring pipeline, quotability) quickly, NOT a substitute for the actual Stage 3 measurement, which still requires the full dev split for tuning and the full test split for frozen headline numbers.
 - Affects: anyone reading early results.json output from this run — these numbers are a sanity check only, not quotable Stage 3 results. State this explicitly if these numbers are shown to anyone before the full run completes.
+
+## B1 — Repository secret scan (Stage 4 prep)
+- Ran gitleaks on full git history (65 commits) and current working tree: no secrets found.
+- Manually grepped full history for GitHub PAT patterns (`github_pat_`, `ghp_`): none found.
+- .gitignore reviewed and confirmed to already exclude: .env*, *.pem/*.key/id_rsa*/id_ed25519*/*.token, secrets/, model weights (models/, *.gguf, *.safetensors, *.onnx, *.pkl, *.joblib), data/generated/, *.sqlite*, redteam/raw/.
+- No changes needed to .gitignore or repo history.
+
+## B3 — EVAL_MODE / X-Guards default-off confirmation (Stage 4 prep)
+- app/config.py: EVAL_MODE = os.getenv("EVAL_MODE", "0") == "1" — defaults to off.
+- app/pipeline.py resolve_guards_disabled(): returns False immediately if EVAL_MODE
+  is falsy, before inspecting the X-Guards header. Header has zero effect unless
+  EVAL_MODE=1 is explicitly set.
+- Confirmed by reading source directly (app/config.py, app/pipeline.py lines ~53-58).
+  No code changes required. Satisfies A1 (same check) as well.
+
+## B4/B5 — THIRD_PARTY.md source verification (Stage 4 prep)
+- B4 (retrieval): Faker and rank_bm25 both correctly listed and match actual usage. No gaps.
+- B5 (guards): deepset/prompt-injections listed correctly. Found gap: scikit-learn
+  (TfidfVectorizer, LogisticRegression, classification_report, train_test_split in
+  app/guards/train_injection.py) was missing — added as a new row (v1.4.1.post1,
+  BSD-3-Clause, installed via apt/python3-sklearn on VM due to s390x pip build failures).
+- PII name detection (app/guards/pii.py) uses a hardcoded word-list, not an external
+  dataset — nothing to add there.
+- Flagged separately, not fixed now: llama-cpp-python and the Granite GGUF model are not
+  in THIRD_PARTY.md either — out of scope for B4/B5 (platform, not retrieval/guards),
+  needs its own pass.

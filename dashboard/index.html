@@ -110,7 +110,11 @@
   .tag.answered { background: rgba(63,185,80,.15); color: var(--safe); }
   .tag.blocked { background: rgba(248,81,73,.15); color: var(--leak); }
   .live-answer .answer-text { color: var(--text-dim); margin-bottom: 8px; }
+
+  .live-answer .meta { color: var(--text-dim); font-family: var(--mono); font-size: 11px; }
+
   .live-answer .meta { color: var(--text-dim); font-family: var(--mono); font-size: 11px; line-height: 1.4; word-break: break-word; }
+
 
   /* --- Main --- */
   main { padding: 28px 32px; max-width: 1040px; }
@@ -385,12 +389,14 @@ function renderAudit(rows) {
     </tr>`).join("");
 }
 
+
 async function refreshAudit() {
   const audit = await fetchJSON("/audit?limit=20");
   if (audit) {
     renderAudit(Array.isArray(audit) ? audit : audit.rows || []);
   }
 }
+
 
 async function loadDashboard() {
   const results = (await fetchJSON("results.json")) || FALLBACK_RESULTS;
@@ -399,6 +405,7 @@ async function loadDashboard() {
   renderChart(results);
   renderAudit(Array.isArray(audit) ? audit : audit.rows || FALLBACK_AUDIT);
 }
+
 
 const ROLE_EXAMPLES = {
   support_agent: "What is the policy for disputing a card transaction?",
@@ -413,6 +420,7 @@ document.getElementById("role").addEventListener("change", (e) => {
   }
 });
 
+
 document.getElementById("sendBtn").addEventListener("click", async () => {
   const token = document.getElementById("token").value.trim();
   const query = document.getElementById("query").value.trim();
@@ -426,6 +434,7 @@ document.getElementById("sendBtn").addEventListener("click", async () => {
       headers: { "Content-Type": "application/json", "X-User-Token": token },
       body: JSON.stringify({ query }),
     });
+
     const body = await r.json().catch(() => ({}));
     const box = document.getElementById("liveAnswer");
     const tag = document.getElementById("liveTag");
@@ -463,17 +472,19 @@ document.getElementById("sendBtn").addEventListener("click", async () => {
       `latency: ${latStr} · ` +
       `input: ${inLabel} (${inScore}) · ` +
       `output redactions: ${outRedact}${outReasons}`;
+
   } catch (e) {
     const box = document.getElementById("liveAnswer");
     box.classList.add("show");
     document.getElementById("liveTag").textContent = "request failed";
     document.getElementById("liveTag").className = "tag blocked";
     document.getElementById("liveText").textContent = String(e);
-    document.getElementById("liveMeta").textContent = "";
+
   } finally {
     btn.disabled = false;
     btn.textContent = "Ask";
     refreshAudit();
+
   }
 });
 
