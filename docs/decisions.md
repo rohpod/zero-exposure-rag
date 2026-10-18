@@ -136,3 +136,9 @@ Record decisions that affect more than one person, plus surprises worth remember
 - Stage: 3 (measurement, early)
 - Decision: time-constrained Stage 3 dry run used a small eval (5 attacks per category = 25, plus 15 benign queries) instead of the full dev split (150 attacks + 60 benign) due to real-time constraints from the 34-81s per-query LLM latency making a full run take several hours. This was a deliberate tradeoff to validate the red-team harness wiring (guards-off vs guards-on preflight check, scoring pipeline, quotability) quickly, NOT a substitute for the actual Stage 3 measurement, which still requires the full dev split for tuning and the full test split for frozen headline numbers.
 - Affects: anyone reading early results.json output from this run — these numbers are a sanity check only, not quotable Stage 3 results. State this explicitly if these numbers are shown to anyone before the full run completes.
+
+## B1 — Repository secret scan (Stage 4 prep)
+- Ran gitleaks on full git history (65 commits) and current working tree: no secrets found.
+- Manually grepped full history for GitHub PAT patterns (`github_pat_`, `ghp_`): none found.
+- .gitignore reviewed and confirmed to already exclude: .env*, *.pem/*.key/id_rsa*/id_ed25519*/*.token, secrets/, model weights (models/, *.gguf, *.safetensors, *.onnx, *.pkl, *.joblib), data/generated/, *.sqlite*, redteam/raw/.
+- No changes needed to .gitignore or repo history.
