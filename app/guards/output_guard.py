@@ -5,6 +5,10 @@ from app.guards.pii import redact
 # CANARY-L2-0501, CANARY-L3-0601, or CANARY-SYSPROMPT.
 _canary_re = re.compile(r"CANARY-[A-Z0-9\-]+", re.IGNORECASE)
 
+# Matches long, repetitive single-digit sequences separated by hyphens or whitespace
+# (e.g. hallucinated card-like digit loops of 20+ single digits).
+_REPETITIVE_DIGIT_SEQUENCE_RE = re.compile(r"\b\d(?:[-\s]+\d){19,}\b")
+
 # How many consecutive characters of overlap with a restricted document
 # counts as "quoting a large verbatim chunk".
 VERBATIM_CHUNK_THRESHOLD = 60
@@ -12,6 +16,10 @@ VERBATIM_CHUNK_THRESHOLD = 60
 
 def _contains_canary(text: str) -> list[str]:
     return _canary_re.findall(text)
+
+
+def _contains_repetitive_digit_sequence(text: str) -> list[str]:
+    return _REPETITIVE_DIGIT_SEQUENCE_RE.findall(text)
 
 
 def _contains_verbatim_chunk(text: str, context_docs: list[dict], role_clearance: int) -> list[str]:
@@ -44,6 +52,13 @@ def scan_output(text: str, role: str, context_docs: list[dict] = None) -> dict:
     canaries_found = _contains_canary(text)
     if canaries_found:
         reasons.append(f"canary leaked: {', '.join(canaries_found)}")
+
+    digit_sequences = _contains_repetitive_digit_sequence(text)
+    for seq in digit_sequences:
+        preview = f"{seq[:50]}..." if len(seq) > 50 else seq
+        reasons.append(
+            f"repetitive digit sequence detected (possible hallucinated number): {preview}"
+        )
 
     role_clearance = ROLE_CLEARANCE.get(role, 0)
     verbatim_docs = _contains_verbatim_chunk(text, context_docs or [], role_clearance)
