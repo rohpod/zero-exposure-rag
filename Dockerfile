@@ -2,12 +2,14 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# System build deps needed for llama-cpp-python's CMake build on s390x.
+# System build deps needed for llama-cpp-python's CMake build and scientific libraries on s390x.
 # See docs/environment.md for the march=z16 fix this mirrors.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
     git \
+    gfortran \
+    libopenblas-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -15,6 +17,12 @@ ENV CMAKE_ARGS="-DGGML_NATIVE=OFF -DCMAKE_C_FLAGS=-march=z16 -DCMAKE_CXX_FLAGS=-
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
+COPY retrieval/ ./retrieval/
+COPY data/ ./data/
+COPY dashboard/ ./dashboard/
+
+# Deterministically generate synthetic documents and fixtures inside the container
+RUN python3 data/generate.py
 
 # Model weights and local secrets are not baked into the image.
 # Mount them at runtime:

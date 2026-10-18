@@ -8,3 +8,4 @@ models/
 .env
 app/auth_tokens.local.json
 docs/samples/
+data/generated/
