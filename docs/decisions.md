@@ -150,3 +150,15 @@ Record decisions that affect more than one person, plus surprises worth remember
   EVAL_MODE=1 is explicitly set.
 - Confirmed by reading source directly (app/config.py, app/pipeline.py lines ~53-58).
   No code changes required. Satisfies A1 (same check) as well.
+
+## B4/B5 — THIRD_PARTY.md source verification (Stage 4 prep)
+- B4 (retrieval): Faker and rank_bm25 both correctly listed and match actual usage. No gaps.
+- B5 (guards): deepset/prompt-injections listed correctly. Found gap: scikit-learn
+  (TfidfVectorizer, LogisticRegression, classification_report, train_test_split in
+  app/guards/train_injection.py) was missing — added as a new row (v1.4.1.post1,
+  BSD-3-Clause, installed via apt/python3-sklearn on VM due to s390x pip build failures).
+- PII name detection (app/guards/pii.py) uses a hardcoded word-list, not an external
+  dataset — nothing to add there.
+- Flagged separately, not fixed now: llama-cpp-python and the Granite GGUF model are not
+  in THIRD_PARTY.md either — out of scope for B4/B5 (platform, not retrieval/guards),
+  needs its own pass.
