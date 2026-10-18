@@ -6,7 +6,10 @@ the load cost.
 """
 from pathlib import Path
 
-from llama_cpp import Llama
+try:
+    from llama_cpp import Llama
+except ImportError:  # pragma: no cover
+    Llama = None
 
 from app.prompts import SYSTEM_PROMPT
 
@@ -19,9 +22,18 @@ MODEL_PATH = (
 _llm: Llama | None = None
 
 
+def is_model_loaded() -> bool:
+    """Return True if the model is initialized in memory or model file exists on disk."""
+    return _llm is not None or MODEL_PATH.exists()
+
+
 def _get_llm() -> Llama:
     global _llm
     if _llm is None:
+        if Llama is None:
+            raise ImportError(
+                "llama_cpp is not installed. Install llama-cpp-python to run the model."
+            )
         if not MODEL_PATH.exists():
             raise FileNotFoundError(
                 f"Model not found at {MODEL_PATH}. See docs/environment.md "

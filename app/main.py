@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.audit import read_latest
 from app.config import STUB_MODE
+from app.llm import is_model_loaded
 from app.pipeline import PipelineAuthError, run_pipeline
 from app.schemas import AskRequest, AskResponse
 
@@ -27,7 +28,7 @@ def health():
     return {
         "status": "ok",
         "stub_mode": STUB_MODE,
-        "model_loaded": False,  # updated once real model integration lands
+        "model_loaded": is_model_loaded(),
     }
 
 
