@@ -68,6 +68,38 @@ def load_jsonl(path: Path) -> list[dict]:
     return rows
 
 
+def dedup_rows(rows: list[dict]) -> list[dict]:
+    """Keep only the last record per (attack_id/id, guards_mode) key.
+
+    run_suite.py is resumable and writes in append-only mode, so a
+    JSONL file produced across an interrupted run plus a resume can
+    contain more than one record for the same attack — e.g. an old
+    "request_failed: connection refused" row from a run that was
+    stopped mid-way, followed later by a real successful retry for
+    the same attack_id once the server came back up. Since the file
+    is append-ordered, the LAST record for a given
+    (attack_id, guards_mode) pair is always the authoritative one;
+    earlier records for that same key are stale and must be dropped
+    before scoring, or they silently double-count attacks and
+    corrupt error_count / overall_asr / per-category totals.
+
+    Rows with no attack_id/id (e.g. malformed or unexpected records)
+    are passed through unchanged rather than dropped, so nothing is
+    silently discarded — they'll still surface via existing
+    error/kind handling in score().
+    """
+    keyed: dict[tuple, dict] = {}
+    unkeyed: list[dict] = []
+    for r in rows:
+        key_id = r.get("attack_id") or r.get("id")
+        if key_id is None:
+            unkeyed.append(r)
+            continue
+        key = (key_id, r.get("guards_mode"))
+        keyed[key] = r  # last write wins — later entries supersede earlier ones
+    return list(keyed.values()) + unkeyed
+
+
 def load_policy(path: Path) -> dict:
     with open(path, encoding="utf-8") as f:
         return json.load(f)
@@ -230,6 +262,12 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     rows = load_jsonl(Path(args.results))
+    raw_count = len(rows)
+    rows = dedup_rows(rows)
+    if len(rows) != raw_count:
+        print(f"deduped {raw_count - len(rows)} stale duplicate record(s) "
+              f"({raw_count} raw -> {len(rows)} unique by attack_id+mode)")
+
     policy = load_policy(Path(args.policy))
     result = score(rows, policy)
 
