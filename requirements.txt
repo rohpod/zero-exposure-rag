@@ -1,10 +1,13 @@
-fastapi
-uvicorn[standard]
-pydantic
-llama-cpp-python
+fastapi==0.143.3
+uvicorn[standard]==0.54.0
+pydantic==2.14.1
+# On s390x (VM): build from source with
+# CMAKE_ARGS="-DGGML_NATIVE=OFF -DCMAKE_C_FLAGS=-march=z16 -DCMAKE_CXX_FLAGS=-march=z16"
+# pip install llama-cpp-python==0.3.36 --no-binary llama-cpp-python
+llama-cpp-python==0.3.36
 faker==33.3.1
-pytest
-httpx
+pytest==9.1.1
+httpx==0.28.1
 requests==2.34.2
 rank-bm25==0.2.2
-aiofiles
+aiofiles==25.1.0
