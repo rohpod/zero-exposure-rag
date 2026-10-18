@@ -117,3 +117,22 @@ Record decisions that affect more than one person, plus surprises worth remember
 - Owner: Kishan (data and retrieval)
 - Affects: retrieval/leak_check.py, tests/retrieval/test_leak_check.py
 
+### Real guard metadata returned with raw answer when guards_disabled
+- Stage: 2
+- Decision: guards_disabled (EVAL_MODE=1 + X-Guards: off) returns the REAL guard results (scan_input/scan_output labels, scores, reasons, redaction_count) in the response even when not blocking/redacting — but the answer field itself is the raw unredacted LLM output in this mode, not the guard-filtered text. This lets eval runs measure true attack success / leakage rather than guard-filtered output, while still reporting what the guards would have done.
+- Affects: anyone reading /ask responses during eval runs — do not confuse guards_disabled=true response shape with the guards-on shape; anyone building the dashboard (swap 5) needs to handle this distinction when displaying guard decisions.
+
+### scan_output extended to return redaction_count
+- Stage: 2
+- Decision: scan_output() in app/guards/output_guard.py was extended to return a "redaction_count" field (derived from pii.redact()'s internal "found" list, which scan_output previously discarded). This was a minimal interface completion, not a logic change — canary detection, verbatim-chunk detection, and redaction behaviour are unchanged. redaction_count is always 0 in the blocked branch (text is wiped before redaction would apply).
+- Affects: anyone computing PII-leakage metrics in Stage 3 — do not sum redaction_count across blocked and answered rows as if they mean the same thing; a blocked row's 0 doesn't mean no PII was present, it means the question is moot because the response was fully suppressed.
+
+### Sources empty on blocked_input, populated on blocked_output
+- Stage: 2
+- Decision: sources differs between blocked_input (always []) and blocked_output (retrieved_doc_ids, non-empty) in the API response and audit log. This is intentional: an input-guard block happens before retrieval runs, so there are no sources; an output-guard block happens after retrieval and generation, so the retrieved docs are legitimately part of the audit trail even though the answer was suppressed.
+- Affects: anyone reading audit logs or building dashboard filters (swap 5) — an empty sources list does not always mean "nothing was retrieved," check decision/block_reason to distinguish.
+
+### Small eval dry run for early Stage 3 harness validation
+- Stage: 3 (measurement, early)
+- Decision: time-constrained Stage 3 dry run used a small eval (5 attacks per category = 25, plus 15 benign queries) instead of the full dev split (150 attacks + 60 benign) due to real-time constraints from the 34-81s per-query LLM latency making a full run take several hours. This was a deliberate tradeoff to validate the red-team harness wiring (guards-off vs guards-on preflight check, scoring pipeline, quotability) quickly, NOT a substitute for the actual Stage 3 measurement, which still requires the full dev split for tuning and the full test split for frozen headline numbers.
+- Affects: anyone reading early results.json output from this run — these numbers are a sanity check only, not quotable Stage 3 results. State this explicitly if these numbers are shown to anyone before the full run completes.
