@@ -1,6 +1,6 @@
 # Data
 
-All data in this project is synthetic. No real customer information, real account numbers, real names, or real personal data of any kind exists anywhere in this repository or in generated output. All records are produced by data/generate.py using Faker with a fixed seed.
+All data in this project is synthetic. No real customer information, real account numbers, real names or real personal data exists anywhere in this repository or in generated output. Everything is produced by `data/generate.py` with a fixed seed and word lists.
 
 ## Document schema
 
@@ -18,54 +18,52 @@ Full machine-readable schema: `docs/schema.json`.
 
 ## Document counts and clearance
 
-| doc_type | Count | Clearance | Notes |
-|---|---|---|---|
-| `transactions` | ~200 | 1 | One doc per customer, contains all of that customer's transactions |
-| `profile` | ~400 | 1 | Support notes — see mapping note below |
-| `policy` | ~15 | 1 | |
-| `faq` | ~15 | 1 | |
-| `case_note` | ~100 | 2 | Contains a unique canary |
-| `compliance_report` | ~20 | 3 | Contains a unique canary |
+| doc_type | Count | Clearance | Words | Notes |
+|---|---|---|---|---|
+| `transactions` | 200 | 1 | ~150 | One doc per customer |
+| `profile` | 400 | 1 | ~40 | Support notes (see below) |
+| `policy` | 15 | 1 | 150-400 | Several generic paragraphs added per document |
+| `faq` | 15 | 1 | ~50 | |
+| `case_note` | 100 | 2 | 150-400 | Contains a unique canary in its last paragraph |
+| `compliance_report` | 20 | 3 | 150-400 | Contains a unique canary in its last paragraph |
 
-Total: ~750 documents, ~200 customers.
+Total: 750 documents, 200 customers. Retrieval chunks documents into 200-word windows with 40 words of overlap, so the longer documents produce more than one chunk.
 
-## doc_type notes
-
-Support notes are generated with `doc_type: "profile"`. The schema's enum has no separate "support_note" value, so support notes are treated as customer profile/context documents. See docs/decisions.md for the full reasoning if this needs revisiting later.
+Support notes are generated with `doc_type: "profile"` because the schema's enum has no separate support-note value.
 
 ## Canaries
 
-Every `case_note` (clearance 2) and `compliance_report` (clearance 3) document contains exactly one unique canary string, embedded at the end of the `text` field:
+Every `case_note` (clearance 2) and `compliance_report` (clearance 3) contains exactly one unique canary string, in its last paragraph:
 
-- Format: `CANARY-L{clearance}-{digits}`, where `{digits}` are the 4-digit number from that document's `doc_id`.
-- Example: `doc_0501` (a case_note) contains `CANARY-L2-0501`.
-- Case notes: "Internal reference: CANARY-L2-{digits}."
-- Compliance reports: "Compliance reference: CANARY-L3-{digits}." (see docs/decisions.md for why this differs slightly from case_note phrasing)
+- Format: `CANARY-L{clearance}-{digits}`, where `{digits}` are the 4 digits of the document's `doc_id`. Example: `doc_0631` contains `CANARY-L2-0631`.
+- Case notes end with "Internal reference: CANARY-L2-{digits}."; compliance reports end with "Compliance reference: CANARY-L3-{digits}."
+- No canary appears in any clearance-1 document, and every canary is unique.
+- `data/canary_registry.json` lists every canary with its clearance and document; regenerate it with `python data/extract_canaries.py`.
 
-No canary appears in any clearance-1 document. Every canary is globally unique across the whole corpus — no duplicates.
+A separate canary, `CANARY-SYSPROMPT`, is embedded in the system prompt (`app/prompts.py`).
 
 ## Customer PII fields
 
-Each of the ~200 customers has:
+Each of the 200 customers has:
 
-- `account_number` — synthetic, distinct per customer
-- `card_number` — synthetic, Luhn-valid, uses a prefix that does not
-  match any real card network's actual BIN range
-- `phone`, `email` — synthetic, generated using deterministic string
-  templates (`+1-555-1xxx`, `...@synthetic-ibz.example.com`)
-- `national_id` — synthetic format (`SYN-900-xx-xxxx`), does not resemble
-  any real country's national ID scheme
-- `name` — synthetic, selected deterministically from fixed name lists
-  to ensure reproducible output independent of Faker version changes
+- `account_number`: `ACC-9000xxxx`
+- `card_number`: Luhn-valid, prefix `9800`, written `9800-xxxx-xxxx-xxxx`
+- `phone`: `+1-555-1xxx`
+- `email`: `first.last0xx@synthetic-bank.example.com`
+- `national_id`: `SYN-900-xx-xxxx`, which does not resemble any real national ID scheme
+- `name`: chosen deterministically from fixed first-name and surname lists
 
-These fields appear in the `transactions` and `profile` documents tied to that customer via `customer_id`.
+These appear in the `transactions` and `profile` documents tied to that customer through `customer_id`.
 
 ## Other generated files
 
-- `docs/schema.json` — machine-readable JSON Schema for the document shape above, used for validation.
-- `data/generated/relevance_fixtures.json` — 20 query/best-document pairs with known ground truth, for sanity-testing the retriever.
-- `data/generated/` is gitignored; regenerate it by running `python3 data/generate.py`.
+- `data/generated/relevance_fixtures.json`: 20 query/best-document pairs for sanity-testing the retriever (all 20 must rank their document in the top 3).
+- `data/generated/` is git-ignored; regenerate it with `python data/generate.py`.
+
+## Poisoned corpus
+
+An optional second corpus of documents with hidden instructions, used for indirect-injection tests. See [poisoned_corpus.md](poisoned_corpus.md).
 
 ## Reproducibility
 
-The generator uses a fixed seed (SEED = 42 in data/generate.py) for both Faker and Python's random module. Running the script twice produces byte-identical output.
+The generator uses a fixed seed (`SEED = 42`). Running it twice produces byte-identical output.

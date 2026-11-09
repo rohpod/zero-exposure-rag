@@ -3,7 +3,7 @@ PII Detection and Redaction Guard for Zero-Exposure RAG.
 
 This module implements deterministic, regex and checksum-based PII detection
 and role-based redaction with zero external machine learning dependencies,
-ensuring 100% portability across architectures (including s390x / LinuxONE).
+so it runs anywhere Python runs.
 
 Interface contract:
     detect(text: str) -> list[dict]
@@ -56,7 +56,7 @@ def luhn_checksum(digits: str) -> bool:
 # Name Word-List & Context Configuration
 # ---------------------------------------------------------------------------
 # Comprehensive list of common first names across Western, Latin, Asian,
-# Indian, and team domains to allow zero-dependency NER fallback.
+# and Indian names to allow zero-dependency NER fallback.
 FIRST_NAMES: set[str] = {
     # Top Western male names
     "James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph",
@@ -89,12 +89,30 @@ FIRST_NAMES: set[str] = {
     "Danielle", "Beverly", "Isabella", "Theresa", "Diana", "Natalie", "Brittany",
     "Charlotte", "Marie", "Kayla", "Alexis", "Lori", "Mia", "Harper", "Ava",
     "Ella", "Chloe", "Penelope", "Layla", "Nora", "Zoey", "Mila", "Audrey",
-    # Diverse & team names
-    "Rohan", "Kishan", "Kaustubh", "Kashvith", "Priya", "Rahul", "Amit",
-    "Sneha", "Ananya", "Arjun", "Vikram", "Sunil", "Pooja", "Deepak",
+    # Diverse names (includes every first name the data generator uses)
+    "Priya", "Rahul", "Amit", "Sneha", "Ananya", "Arjun", "Vikram", "Sunil",
+    "Pooja", "Deepak", "Ishaan", "Meera", "Alice", "Bob", "Carol", "Victor",
+    "Amara", "Tariq", "Zara", "Marcus", "Leila", "Dmitri", "Amina", "Mei",
     "Carlos", "Elena", "Mateo", "Sofia", "Lucia", "Diego", "Alejandro",
     "Fatima", "Ahmed", "Mohamed", "Ali", "Hassan", "Aisha", "Omar",
     "Wei", "Chen", "Ming", "Yuki", "Kenji", "Hiroshi", "Sakura",
+}
+
+# Surnames used for full-name detection: the most common US surnames plus
+# every surname the data generator uses.
+LAST_NAMES: set[str] = {
+    "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
+    "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson",
+    "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson",
+    "White", "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker",
+    "Young", "Allen", "King", "Wright", "Scott", "Torres", "Nguyen", "Hill", "Flores",
+    "Green", "Adams", "Nelson", "Baker", "Hall", "Rivera", "Campbell", "Mitchell",
+    "Carter", "Roberts", "Gomez", "Phillips", "Evans", "Turner", "Diaz", "Parker",
+    "Cruz", "Edwards", "Collins", "Reyes", "Stewart", "Morris", "Morales", "Murphy",
+    "Cook", "Rogers", "Gutierrez", "Ortiz", "Morgan", "Cooper", "Peterson", "Bailey",
+    "Reed", "Kelly", "Howard", "Ramos", "Kim", "Cox", "Ward", "Richardson", "Watson",
+    "Brooks", "Chavez", "Wood", "James", "Bennett", "Gray", "Mendoza", "Ruiz", "Hughes",
+    "Price", "Alvarez", "Castillo", "Sanders", "Patel", "Myers", "Long", "Ross", "Foster",
 }
 
 # English homonyms that could appear as common verbs/nouns;
@@ -124,7 +142,12 @@ NATIONAL_ID_CONTEXT_REGEX = re.compile(
 )
 
 PHONE_REGEX = re.compile(
-    r'(?<!\d)(?:(?:\+\d{1,3}[-.\s]?)?(?:\(\d{3}\)|\b\d{3})[-.\s]\d{3}[-.\s]\d{4}\b|\+\d{1,3}[-.\s]\d{2,4}[-.\s]\d{3,4}[-.\s]\d{3,4}\b)(?!\d)'
+    r'(?<!\d)(?:(?:\+\d{1,3}[-.\s]?)?(?:\(\d{3}\)|\b\d{3})[-.\s]\d{3}[-.\s]\d{4}\b|\+\d{1,3}[-.\s]\d{2,4}[-.\s]\d{3,4}[-.\s]\d{3,4}\b|\+\d{1,3}[-.\s]\d{3}[-.\s]\d{4}\b)(?!\d)'
+)
+
+# Format of the synthetic national IDs produced by data/generate.py.
+SYNTHETIC_NATIONAL_ID_REGEX = re.compile(
+    r'\bSYN-\d{3}-\d{2}-\d{4}\b'
 )
 
 ACCOUNT_CONTEXT_REGEX = re.compile(
@@ -140,6 +163,12 @@ TITLE_NAME_REGEX = re.compile(
     r'\b(?:Mr\.|Mrs\.|Ms\.|Miss|Dr\.|Prof\.|Customer|Patient|User|Agent|Name:?|Dear)\s+([A-Z][a-z]+)\b'
 )
 
+# Context words that precede a name; never the first half of a full name.
+NAME_CONTEXT_WORDS: set[str] = {
+    "Customer", "Patient", "User", "Agent", "Name", "Dear", "Mr", "Mrs", "Ms",
+    "Miss", "Dr", "Prof",
+}
+
 WORD_NAME_REGEX = re.compile(
     r'\b[A-Z][a-z]+\b'
 )
@@ -152,7 +181,8 @@ TYPE_PRIORITY: dict[str, int] = {
     "national_id": 3,
     "phone": 4,
     "account_number": 5,
-    "first_name": 6,
+    "full_name": 6,
+    "first_name": 7,
 }
 
 
@@ -194,6 +224,7 @@ def detect(text: str) -> list[dict[str, Any]]:
         - phone
         - email
         - national_id
+        - full_name     (first name from the word list, or a known surname)
         - first_name    (regex/word-list fallback)
 
     Returns:
@@ -228,6 +259,14 @@ def detect(text: str) -> list[dict[str, Any]]:
 
     # 3. national_id (SSN and labeled national IDs)
     for match in SSN_STANDALONE_REGEX.finditer(text):
+        candidates.append({
+            "type": "national_id",
+            "start": match.start(),
+            "end": match.end(),
+            "text": match.group(0),
+        })
+
+    for match in SYNTHETIC_NATIONAL_ID_REGEX.finditer(text):
         candidates.append({
             "type": "national_id",
             "start": match.start(),
@@ -279,7 +318,22 @@ def detect(text: str) -> list[dict[str, Any]]:
             "text": name,
         })
 
-    for match in WORD_NAME_REGEX.finditer(text):
+    words = list(WORD_NAME_REGEX.finditer(text))
+    for prev, cur in zip(words, words[1:]):
+        if text[prev.end():cur.start()] != " ":
+            continue
+        first, last = prev.group(0), cur.group(0)
+        if first in NAME_CONTEXT_WORDS:
+            continue
+        if (first in FIRST_NAMES and first not in AMBIGUOUS_NAMES) or last in LAST_NAMES:
+            candidates.append({
+                "type": "full_name",
+                "start": prev.start(),
+                "end": cur.end(),
+                "text": f"{first} {last}",
+            })
+
+    for match in words:
         word = match.group(0)
         if word in FIRST_NAMES and word not in AMBIGUOUS_NAMES:
             candidates.append({

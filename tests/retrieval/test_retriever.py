@@ -153,9 +153,11 @@ def test_build_index_tier_isolation(corpus_and_index: tuple[dict[str, Any], dict
     tier2_positions, _ = tiers[2]
     tier3_positions, _ = tiers[3]
 
-    expected_tier1_count = sum(1 for d in documents if d["clearance"] <= 1)
-    expected_tier2_count = sum(1 for d in documents if d["clearance"] <= 2)
-    expected_tier3_count = sum(1 for d in documents if d["clearance"] <= 3)
+    # Documents are now long enough to span several chunks, so count chunks.
+    expected_tier1_count = sum(1 for c in chunks if c["clearance"] <= 1)
+    expected_tier2_count = sum(1 for c in chunks if c["clearance"] <= 2)
+    expected_tier3_count = sum(1 for c in chunks if c["clearance"] <= 3)
+    assert len(chunks) >= len(documents)
 
     assert len(tier1_positions) == expected_tier1_count
     assert len(tier2_positions) == expected_tier2_count

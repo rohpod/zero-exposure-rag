@@ -1,7 +1,7 @@
 ---
 name: Task
-about: A unit of work from the implementation plan
-title: "[stageN] component: short description"
+about: A unit of work from the roadmap
+title: "feat(scope): short description"
 labels: task
 ---
 
@@ -9,9 +9,9 @@ labels: task
 
 <!-- What this delivers and why. -->
 
-## Owner and review partner
+## Task IDs
 
-<!-- Who builds it, who reviews it. -->
+<!-- IDs from docs/roadmap.md, if any. -->
 
 ## Inputs and dependencies
 
@@ -23,4 +23,4 @@ labels: task
 
 ## Tests
 
-<!-- Which stage tests prove it works. -->
+<!-- Which tests prove it works. -->

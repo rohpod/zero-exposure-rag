@@ -1,35 +1,29 @@
 FROM python:3.12-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# System build deps needed for llama-cpp-python's CMake build and scientific libraries on s390x.
-# See docs/environment.md for the march=z16 fix this mirrors.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    cmake \
-    git \
-    gfortran \
-    libopenblas-dev \
-    && rm -rf /var/lib/apt/lists/*
-
 COPY requirements.txt .
-ENV CMAKE_ARGS="-DGGML_NATIVE=OFF -DCMAKE_C_FLAGS=-march=z16 -DCMAKE_CXX_FLAGS=-march=z16"
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
 COPY retrieval/ ./retrieval/
 COPY data/ ./data/
 COPY dashboard/ ./dashboard/
+COPY docs/schema.json ./docs/schema.json
 
-# Deterministically generate synthetic documents and fixtures inside the container
-RUN python3 data/generate.py
+# Generate the synthetic corpus and train the injection classifier inside the image.
+RUN python data/generate.py && python app/guards/train_injection.py
 
-# Model weights and local secrets are not baked into the image.
-# Mount them at runtime:
-#   -v $(pwd)/models:/app/models
-#   -v $(pwd)/app/auth_tokens.local.json:/app/app/auth_tokens.local.json
-# See docs/environment.md for how to obtain the model file.
+RUN useradd --create-home appuser \
+    && mkdir -p /data /app/data/cache \
+    && chown -R appuser /app /data
+USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+HEALTHCHECK CMD python -c "import urllib.request,sys; urllib.request.urlopen('http://127.0.0.1:%s/health' % __import__('os').environ.get('PORT','8000'))"
+
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

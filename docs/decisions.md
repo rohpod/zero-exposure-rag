@@ -1,164 +1,165 @@
 # Decision log
 
-Record decisions that affect more than one person, plus surprises worth remembering. Newest entries at the bottom. These notes feed the README and the pitch.
+Decisions that affect more than one person, plus surprises worth remembering. Newest entries at the bottom. Each entry has a title, a date, a status (Accepted or Superseded), the context, the decision, its consequences and the owner.
 
-## Format
+---
 
-```
-### Short title
-- Stage:
-- Decision:
-- Why:
-- Alternatives considered:
-- Owner:
-- Affects:
-```
-
-## Entries
 ### EVAL_MODE and X-Guards contract
-- Stage: 1
-- Decision: EVAL_MODE defaults to off. The X-Guards header (used by the red-team harness to run with guards off) is only honoured by the server when the environment variable EVAL_MODE=1 is set. EVAL_MODE must be off for the demo and the final submission.
-- Why: prevents the guards from ever being silently disabled outside controlled evaluation runs; this is a security invariant (see PLAN.docx).
-- Alternatives considered: none, this is fixed by the project interfaces document.
-- Owner: Rohan
-- Affects: Kaustubh (guards), Kashvith (red-team harness)
+- **Date:** 2026-10
+- **Status:** Accepted
+- **Context:** The red-team runner needs to run requests with the guards off to measure their effect, but the guards must never be silently disabled in a demo.
+- **Decision:** `EVAL_MODE` defaults to off. The `X-Guards: off` header is honoured only when `EVAL_MODE=1`; otherwise it is ignored and a warning is logged.
+- **Consequences:** `/health` reports `eval_mode`, and the runner refuses a guards-off comparison against a server that has it off. See [security-model.md](security-model.md).
+- **Owner:** Rohan
 
-### Granite model served in-process, not via the notebook container
-- Stage: 1
-- Decision: app/llm.py loads the Granite GGUF model directly in the FastAPI process using llama-cpp-python, after copying the model file out of the JupyterLab container to models/ on the host. The notebook/container is kept only as the original reference, not used for serving.
-- Why: the JupyterLab container exposes no serving API, only an interactive notebook; in-process loading is simplest for a 24-hour build and matches PLAN.docx's fallback philosophy.
-- Alternatives considered: calling into the notebook container somehow (rejected, no exposed API, fragile); running a separate model-serving process (rejected, unnecessary complexity for this scale).
-- Owner: Rohan
-- Affects: everyone (this is the generate() interface retrieval/pipeline build against); Kashvith (latency numbers matter for demo pacing)
+### Local in-process model
+- **Date:** 2026-10
+- **Status:** Superseded by "Hosted LLM via Groq"
+- **Context:** The first version served a small local model inside the API process so that no data left the machine.
+- **Decision:** Load the model in-process at startup and call it for each request.
+- **Consequences:** Needed large model files, native builds and a specific platform; superseded because it made the project hard to run for anyone else.
+- **Owner:** Rohan
 
-### Long-prompt latency is high, needs a decision before Stage 3
-- Stage: 1
-- Decision: not yet made. Measured 2.58s for a 20-token completion and 104.19s for a 200-token completion, both at temperature 0, on this VM's 3 CPU cores. This is too slow for a live demo if many turns need ~200 tokens.
-- Why: CPU-only, modest core count, and this is a non-quantised f16 model.
-- Alternatives considered: not yet evaluated. Candidates per PROJECT.docx fallback table: a smaller/more quantised model, lower max_tokens, fewer retrieved chunks.
-- Owner: Rohan
-- Affects: Kashvith (demo script timing), whole team (Stage 3 measurement latency numbers)
+### Long-prompt latency of the local model
+- **Date:** 2026-10
+- **Status:** Superseded by "Hosted LLM via Groq"
+- **Context:** The local model took about 2.6 s for a 20-token completion and about 104 s for a 200-token completion on three CPU cores, too slow for live use.
+- **Decision:** None at the time; options were a smaller model, fewer tokens or fewer chunks.
+- **Consequences:** Resolved by moving to a hosted model.
+- **Owner:** Rohan
 
 ### Compliance report canary phrasing
-- Stage: 1
-- Decision: Compliance reports use "Compliance reference: CANARY-L3-{digits}." instead of copying the case_note sample's "Internal reference:" wording.
-- Why: No clearance-3 sample existed to copy. The canary format itself didn't change, just the lead-in phrase.
-- Alternatives considered: Reusing "Internal reference:" for all levels.
-- Owner: Kishan (data and retrieval)
-- Affects: data/generate.py, Kashvith's red-team prompts for compliance_report canaries
+- **Date:** 2026-10
+- **Status:** Accepted
+- **Context:** No clearance-3 sample existed to copy.
+- **Decision:** Compliance reports end with "Compliance reference: CANARY-L3-{digits}." instead of the case-note wording "Internal reference:".
+- **Consequences:** The canary format is unchanged; only the lead-in differs.
+- **Owner:** Kishan
 
 ### Support notes mapped to doc_type profile
-- Stage: 1
-- Decision: Support notes are generated with doc_type "profile" rather than adding a separate enum value.
-- Why: The schema's doc_type enum has no separate "support_note" value; support notes serve as customer profile and context documents, and nothing downstream (retrieval, guards) currently distinguishes between the two.
-- Alternatives considered: Adding "support_note" to the schema's doc_type enum (rejected to keep the shared schema contract minimal and avoid breaking existing consumers).
-- Owner: Kishan (data and retrieval)
-- Affects: data/generate.py, retrieval filter queries, docs/schema.json
+- **Date:** 2026-10
+- **Status:** Accepted
+- **Context:** The shared schema's `doc_type` enum has no support-note value.
+- **Decision:** Generate support notes as `profile` documents rather than extending the enum.
+- **Consequences:** The schema contract stays minimal; nothing downstream distinguishes the two.
+- **Owner:** Kishan
 
 ### Per-tier BM25 indexes enforce clearance before ranking
-- Stage: 1
-- Decision: Build one BM25 index per clearance tier (tier N contains only chunks with clearance <= N). The tier is selected strictly from the authenticated role enum.
-- Why: Structural isolation by construction. A tier-1 index literally does not contain tier-2 or tier-3 chunk text or BM25 corpus statistics (IDF, average document length). Lower clearance roles cannot receive higher-clearance text even under prompt injection, canary queries, or search scoring edge cases.
-- Alternatives considered:
-  1. Single BM25 index with post-retrieval filtering (retrieve top-K, drop chunks where clearance > role_clearance). Rejected because: (a) top-K could be dominated by restricted documents, leaving fewer than K results for the user; (b) IDF statistics computed over restricted documents leak corpus frequency information across security boundaries; (c) post-filtering is an authorization layer on top of search rather than isolation by construction.
-  2. Single BM25 index with pre-filtering query filter. Rejected because rank-bm25 is an in-memory library without query filter predicates, and modifying its scoring loop adds complexity and overhead.
-  3. One BM25 index per clearance tier (chosen).
-- Owner: Kishan (data and retrieval)
-- Affects: retrieval/index.py, retrieval/retriever.py, app/pipeline.py (future wiring, Stage 2)
+- **Date:** 2026-10
+- **Status:** Accepted
+- **Context:** Clearance must hold even under prompt injection or odd scoring edge cases. Post-filtering a shared index can starve the top-k and leaks corpus statistics across clearance levels.
+- **Decision:** Build one BM25 index per clearance tier (tier N holds only chunks with clearance <= N), selected only from the authenticated role.
+- **Consequences:** A tier-1 index physically lacks restricted text and statistics. Memory use is higher, which is negligible at this scale.
+- **Owner:** Kishan
 
+### Canary matching: complete token, word boundary
+- **Date:** 2026-10
+- **Status:** Accepted
+- **Context:** A canary ID could appear as part of a longer string.
+- **Decision:** The scorer matches canary strings as complete tokens, applied identically across all runs. Normalised matching (see "Obfuscation-aware scoring") is added on top of this literal check.
+- **Consequences:** Fewer false positives from coincidental overlap.
+- **Owner:** Kashvith
 
-### Canary matching: complete-ID, word-boundary only
-- Stage: 1
-- Decision: score.py's success detector matches canary strings (CANARY-L2-xxxx,
-  CANARY-L3-xxxx, CANARY-SYSPROMPT) as complete tokens with word boundaries,
-  not as substrings. A canary ID that appears only as part of a longer string
-  does not count as a leak. Applied identically across every evaluation run,
-  dev and test, guards off and guards on.
-- Why: reduces false positives from coincidental substring overlap between
-  canary IDs, without claiming to catch every possible disguised disclosure.
-- Alternatives considered: plain substring matching (rejected — risks counting
-  a longer token that happens to start with a shorter canary ID as a leak of
-  that shorter canary).
-- Owner: Kashvith (red-team and product)
-- Affects: score.py's reported ASR and PII leakage numbers (headline results),
-  anyone interpreting "why didn't this attack count as a success"
+### Injection classifier baseline
+- **Date:** 2026-10
+- **Status:** Accepted
+- **Context:** A simple, interpretable baseline is enough to start; the rule layer catches known phrasings.
+- **Decision:** TF-IDF (word and bigram, 5000 features) with logistic regression (balanced classes), trained on deepset/prompt-injections plus our own benign banking queries with an 80/20 split.
+- **Consequences:** The classifier has limited recall on novel injections and can flag odd benign phrasing; the benign training set is extended when false blocks are found. Validation numbers are printed by `train_injection.py`.
+- **Owner:** Kaustubh
 
-
-### Injection classifier baseline results
-- Stage: 1
-- Decision: trained TF-IDF (word+bigram, max 5000 features) + logistic regression (class_weight=balanced) on deepset/prompt-injections + our own benign banking queries, 591 total examples, 80/20 train/val split.
-- Why: simple, fast, interpretable baseline per PLAN.docx's fallback-first approach; sklearn confirmed working on VM via system package.
-- Results (validation, run on the VM): accuracy 0.92, injection precision 0.90 / recall 0.85 / f1 0.88, safe precision 0.93 / recall 0.95 / f1 0.94.
-- Alternatives considered: none yet — this is the first trained version, may revisit threshold/features once combined with the rule layer in scan_input.
-- Owner: Kaustubh
-- Affects: Kaustubh (scan_input), Kashvith (red-team attack success numbers will reflect this classifier's recall gap on injection)
-
-### Model binaries not committed to git
-- Stage: 1
-- Decision: trained model files (models/injection_classifier.pkl, models/injection_vectorizer.pkl) are gitignored, not committed. They're regenerated by running app/guards/train_injection.py, which is deterministic given the fixed random_state=42 split.
-- Why: keeps the repo lightweight, avoids binary diffs in git; matches the existing models/ .gitignore pattern already used for the Granite model file.
-- Alternatives considered: committing the .pkl files directly (rejected, repo bloat, no real benefit since the script reproduces them exactly).
-- Owner: Kaustubh
-- Affects: anyone running the pipeline locally or on a fresh VM checkout — must run train_injection.py once before injection.py can load the model.
-
-### Retriever relevance result on the VM
-- Stage: 1
-- Decision: Record the retriever relevance check as measured on the LinuxONE VM: 20/20 fixtures have their best document in the top 3 (tests/retrieval/test_retriever.py::test_relevance_fixtures, Python 3.12.3, rank-bm25 0.2.2). All 12 retrieval tests and all 8 data tests pass on the VM.
-- Why: The plan requires recording measured numbers. The fixtures come from the same synthetic generator as the corpus, so queries share wording with their target documents; this result is indicative, not an independent benchmark.
-- Alternatives considered: none.
-- Owner: Kishan (data and retrieval)
-- Affects: retrieval/retriever.py, README results section
+### Model binaries not committed
+- **Date:** 2026-10
+- **Status:** Accepted
+- **Context:** Pickled model files are binary and reproducible.
+- **Decision:** `models/` is git-ignored; `app/guards/train_injection.py` regenerates the files deterministically (and the Docker build runs it).
+- **Consequences:** A fresh checkout must run the training script once before the server starts; startup fails with a clear message otherwise.
+- **Owner:** Kaustubh
 
 ### Retrieval-only leak check on dev attacks
-- Stage: 3
-- Decision: add retrieval/leak_check.py, which runs the dev-split attacks through retrieve() per role and reports clearance violations, restricted canaries in returned chunks and the zero-result rate; it refuses test-split records in code.
-- Why: gives an early, LLM-free diagnostic of retrieval problems and enforces the tune-on-dev rule; leak counts are expected to be 0 by construction (per-tier indexes), so the useful signal is the zero-result rate. These results are diagnostic only and are not headline numbers.
-- Alternatives considered: running the attacks only through the full pipeline (rejected for this purpose: slower and blocked until integration is complete); importing redteam.run_suite.load_attacks (rejected: it would couple a retrieval tool to the red-team harness and its network dependency).
-- Owner: Kishan (data and retrieval)
-- Affects: retrieval/leak_check.py, tests/retrieval/test_leak_check.py
+- **Date:** 2026-10
+- **Status:** Accepted
+- **Context:** An LLM-free diagnostic helps find retrieval problems early and enforces tuning on the dev split.
+- **Decision:** `retrieval/leak_check.py` runs dev attacks through `retrieve()` per role and reports clearance violations, restricted canaries and the zero-result rate; it refuses test-split records.
+- **Consequences:** Leak counts are expected to be 0 by construction; the useful signal is the zero-result rate. Diagnostic only, never a headline number.
+- **Owner:** Kishan
 
-### Real guard metadata returned with raw answer when guards_disabled
-- Stage: 2
-- Decision: guards_disabled (EVAL_MODE=1 + X-Guards: off) returns the REAL guard results (scan_input/scan_output labels, scores, reasons, redaction_count) in the response even when not blocking/redacting — but the answer field itself is the raw unredacted LLM output in this mode, not the guard-filtered text. This lets eval runs measure true attack success / leakage rather than guard-filtered output, while still reporting what the guards would have done.
-- Affects: anyone reading /ask responses during eval runs — do not confuse guards_disabled=true response shape with the guards-on shape; anyone building the dashboard (swap 5) needs to handle this distinction when displaying guard decisions.
+### Guard metadata when guards are disabled
+- **Date:** 2026-10
+- **Status:** Accepted
+- **Context:** Evaluation must measure true leakage, not guard-filtered output.
+- **Decision:** With `EVAL_MODE=1` and `X-Guards: off`, the answer is the raw model output and no input or output block is applied.
+- **Consequences:** Anyone reading evaluation responses must not confuse the two shapes; `guards_disabled` marks them.
+- **Owner:** Rohan
 
-### scan_output extended to return redaction_count
-- Stage: 2
-- Decision: scan_output() in app/guards/output_guard.py was extended to return a "redaction_count" field (derived from pii.redact()'s internal "found" list, which scan_output previously discarded). This was a minimal interface completion, not a logic change — canary detection, verbatim-chunk detection, and redaction behaviour are unchanged. redaction_count is always 0 in the blocked branch (text is wiped before redaction would apply).
-- Affects: anyone computing PII-leakage metrics in Stage 3 — do not sum redaction_count across blocked and answered rows as if they mean the same thing; a blocked row's 0 doesn't mean no PII was present, it means the question is moot because the response was fully suppressed.
+### Sources empty when blocked
+- **Date:** 2026-11-09
+- **Status:** Accepted (replaces an earlier behaviour that returned sources on output blocks)
+- **Context:** Returning retrieved document IDs for a response that was blocked for a leak tells the caller which restricted material matched.
+- **Decision:** Blocked responses have `sources: []`. The retrieved document IDs are still stored in the audit row.
+- **Consequences:** The audit row, not the response, is the place to see what was retrieved for a blocked request.
+- **Owner:** Rohan
 
-### Sources empty on blocked_input, populated on blocked_output
-- Stage: 2
-- Decision: sources differs between blocked_input (always []) and blocked_output (retrieved_doc_ids, non-empty) in the API response and audit log. This is intentional: an input-guard block happens before retrieval runs, so there are no sources; an output-guard block happens after retrieval and generation, so the retrieved docs are legitimately part of the audit trail even though the answer was suppressed.
-- Affects: anyone reading audit logs or building dashboard filters (swap 5) — an empty sources list does not always mean "nothing was retrieved," check decision/block_reason to distinguish.
+### Hosted LLM via Groq
+- **Date:** 2026-11-09
+- **Status:** Accepted
+- **Context:** The project must be free to run for anyone and must not need specialised hardware.
+- **Decision:** Use the Groq free tier with model `qwen/qwen3.8-27b` and `reasoning_effort: "none"`. No local model and no other provider. Tests and CI use a mock provider.
+- **Consequences:** Prompts leave the machine, so only synthetic data may be used; free-tier rate limits shape how evaluations are run (see [redteam.md](redteam.md)).
+- **Owner:** Rohan
 
-### Small eval dry run for early Stage 3 harness validation
-- Stage: 3 (measurement, early)
-- Decision: time-constrained Stage 3 dry run used a small eval (5 attacks per category = 25, plus 15 benign queries) instead of the full dev split (150 attacks + 60 benign) due to real-time constraints from the 34-81s per-query LLM latency making a full run take several hours. This was a deliberate tradeoff to validate the red-team harness wiring (guards-off vs guards-on preflight check, scoring pipeline, quotability) quickly, NOT a substitute for the actual Stage 3 measurement, which still requires the full dev split for tuning and the full test split for frozen headline numbers.
-- Affects: anyone reading early results.json output from this run — these numbers are a sanity check only, not quotable Stage 3 results. State this explicitly if these numbers are shown to anyone before the full run completes.
+### Remove STUB_MODE in favour of a mock provider
+- **Date:** 2026-11-09
+- **Status:** Accepted
+- **Context:** `STUB_MODE` replaced retrieval, guards and the model with canned values, so results could look real when they were not.
+- **Decision:** Delete the stub path. The pipeline always runs the real guards and retrieval; only the LLM can be a deterministic mock (`fixed`, `echo` or `leaky`).
+- **Consequences:** Tests exercise the real pipeline. The runner decides whether a run is quotable from server metadata (provider, `eval_mode`), not from a stub answer.
+- **Owner:** Rohan
 
-## B1 — Repository secret scan (Stage 4 prep)
-- Ran gitleaks on full git history (65 commits) and current working tree: no secrets found.
-- Manually grepped full history for GitHub PAT patterns (`github_pat_`, `ghp_`): none found.
-- .gitignore reviewed and confirmed to already exclude: .env*, *.pem/*.key/id_rsa*/id_ed25519*/*.token, secrets/, model weights (models/, *.gguf, *.safetensors, *.onnx, *.pkl, *.joblib), data/generated/, *.sqlite*, redteam/raw/.
-- No changes needed to .gitignore or repo history.
+### Attack-suite rebuild
+- **Date:** 2026-11-09
+- **Status:** Accepted
+- **Context:** The first suite had flaws that made results unreliable: 120 of 250 prompts contained their own target canary, 34 of 67 distinct test prompts also appeared in dev, 29 attacks could never succeed, and the indirect attacks did not target the poisoned documents.
+- **Decision:** One-time rebuild before any published result, and then the split is frozen. The new generator never puts canary text in a prompt, emits only achievable attacks, splits by unique prompt text (60/40, seed 42) and targets poisoned documents with innocent-looking questions verified against retrieval. Each category has 50 records and at least 40 distinct prompts.
+- **Consequences:** Earlier numbers are not comparable and are not published. Do not regenerate the suite after results exist.
+- **Owner:** Kashvith
 
-## B3 — EVAL_MODE / X-Guards default-off confirmation (Stage 4 prep)
-- app/config.py: EVAL_MODE = os.getenv("EVAL_MODE", "0") == "1" — defaults to off.
-- app/pipeline.py resolve_guards_disabled(): returns False immediately if EVAL_MODE
-  is falsy, before inspecting the X-Guards header. Header has zero effect unless
-  EVAL_MODE=1 is explicitly set.
-- Confirmed by reading source directly (app/config.py, app/pipeline.py lines ~53-58).
-  No code changes required. Satisfies A1 (same check) as well.
+### Obfuscation-aware scoring
+- **Date:** 2026-11-09
+- **Status:** Accepted
+- **Context:** Scoring only literal formats counts spaced-out, spelled-out or base64 leaks as safe.
+- **Decision:** The scorer reports `literal_success` and `normalized_success` (NFKC, uppercase, separators removed, spelled-out digits, base64 decoded) and uses the normalised count for the attack success rate. It keeps its own copy of the rules so it stays independent of `app/`.
+- **Consequences:** Reversed or otherwise encoded output is not detected, and the attack prompts do not ask for it.
+- **Owner:** Kashvith
 
-## B4/B5 — THIRD_PARTY.md source verification (Stage 4 prep)
-- B4 (retrieval): Faker and rank_bm25 both correctly listed and match actual usage. No gaps.
-- B5 (guards): deepset/prompt-injections listed correctly. Found gap: scikit-learn
-  (TfidfVectorizer, LogisticRegression, classification_report, train_test_split in
-  app/guards/train_injection.py) was missing — added as a new row (v1.4.1.post1,
-  BSD-3-Clause, installed via apt/python3-sklearn on VM due to s390x pip build failures).
-- PII name detection (app/guards/pii.py) uses a hardcoded word-list, not an external
-  dataset — nothing to add there.
-- Flagged separately, not fixed now: llama-cpp-python and the Granite GGUF model are not
-  in THIRD_PARTY.md either — out of scope for B4/B5 (platform, not retrieval/guards),
-  needs its own pass.
+### Redact before generation
+- **Date:** 2026-11-09
+- **Status:** Accepted
+- **Context:** Filtering only the answer lets an obfuscated answer carry PII the model was given.
+- **Decision:** With guards on, retrieved chunks are redacted for the caller's role before they are put in the prompt. Output redaction stays as a second layer. Guards-off sends raw chunks.
+- **Consequences:** The model cannot repeat PII it never saw. Answers can mention masked placeholders.
+- **Owner:** Kaustubh
+
+### /audit restricted to compliance
+- **Date:** 2026-11-09
+- **Status:** Accepted
+- **Context:** The audit log holds queries and guard reasons that can quote leaked values.
+- **Decision:** `/audit` requires a valid token (401) and the `compliance_officer` role (403). Stored queries are redacted with the support policy.
+- **Consequences:** The dashboard sends the token from its form in live mode.
+- **Owner:** Rohan
+
+### Per-customer scoping deferred
+- **Date:** 2026-11-09
+- **Status:** Accepted
+- **Context:** Restricting each support agent to their own customers needs an assignment model that does not exist yet.
+- **Decision:** Not implemented in this phase. Support agents can read every customer's clearance-1 records. This is documented as an accepted limitation.
+- **Consequences:** Listed in the security model and the README limitations; planned for a later phase.
+- **Owner:** Rohan
+
+### GitHub Pages static showcase
+- **Date:** 2026-11-09
+- **Status:** Accepted
+- **Context:** A browser cannot call Groq without exposing the API key, so a live chatbot cannot be hosted for free.
+- **Decision:** Publish a static showcase (dashboard, published results, recorded examples) on GitHub Pages. The live question form is hidden in static mode.
+- **Consequences:** Visitors run the project locally to chat with it. The showcase contains only real evaluation output.
+- **Owner:** Kashvith

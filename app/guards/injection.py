@@ -8,12 +8,25 @@ _classifier = None
 _vectorizer = None
 
 
-def _load_model():
+def load_model(force: bool = False):
+    """
+    Load the classifier. Called at startup so a missing model fails fast.
+
+    The pickle files must only ever come from app/guards/train_injection.py
+    (they are built inside our own image); never load model files from an
+    untrusted source.
+    """
     global _classifier, _vectorizer
-    if _classifier is None:
-        with open(MODEL_DIR / "injection_classifier.pkl", "rb") as f:
+    if force or _classifier is None:
+        clf_path = MODEL_DIR / "injection_classifier.pkl"
+        vec_path = MODEL_DIR / "injection_vectorizer.pkl"
+        if not clf_path.exists() or not vec_path.exists():
+            raise RuntimeError(
+                "Injection model missing: run python app/guards/train_injection.py"
+            )
+        with open(clf_path, "rb") as f:
             _classifier = pickle.load(f)
-        with open(MODEL_DIR / "injection_vectorizer.pkl", "rb") as f:
+        with open(vec_path, "rb") as f:
             _vectorizer = pickle.load(f)
     return _classifier, _vectorizer
 
@@ -36,8 +49,8 @@ EXFIL_PATTERNS = [
 
 INJECTION_PATTERNS = [
     r"\bi am the (admin|administrator|compliance officer|fraud analyst)\b",
-    r"\bact as\b",
-    r"\byou are now\b",
+    r"\bact as (an? |the )?(admin|administrator|system|developer|root|unrestricted|jailbroken)\b",
+    r"\byou are now (in )?(developer|admin|unrestricted|jailbroken|dan)\b",
     r"\bpretend (you are|to be)\b",
     r"\bstop,? ignore\b",
     r"\bnew (task|instructions) follow\b",
@@ -57,9 +70,9 @@ def scan_input(text: str) -> dict:
         return {"label": "injection", "score": 0.95}
 
     # Fall back to the trained classifier for everything else.
-    clf, vectorizer = _load_model()
+    clf, vectorizer = load_model()
     vec = vectorizer.transform([text])
-    pred_label = clf.predict(vec)[0]
+    pred_label = str(clf.predict(vec)[0])
     pred_proba = clf.predict_proba(vec)[0]
     classes = list(clf.classes_)
     score = float(pred_proba[classes.index(pred_label)])

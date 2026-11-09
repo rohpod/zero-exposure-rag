@@ -249,3 +249,29 @@ if __name__ == "__main__":
     test_relevance_fixtures()
     print("  [PASS] test_relevance_fixtures")
     print("All tests passed successfully!")
+
+
+def test_at_least_ten_percent_of_documents_span_multiple_chunks():
+    from retrieval.index import build_chunks
+
+    _, documents, _ = generate_all()
+    chunks = build_chunks(documents)
+    multi = {c["doc_id"] for c in chunks if c["chunk_id"].endswith("#1")}
+    assert len(multi) / len(documents) >= 0.10
+
+
+def test_long_documents_are_within_the_planned_word_range():
+    _, documents, _ = generate_all()
+    for doc in documents:
+        if doc["doc_type"] in ("case_note", "compliance_report", "policy"):
+            assert 150 <= len(doc["text"].split()) <= 400, doc["doc_id"]
+            if doc["clearance"] > 1:
+                assert doc["text"].rstrip().endswith(f"{doc['text'].split('CANARY-')[1][:7]}.")
+
+
+def test_customers_use_the_synthetic_bank_email_domain_and_neutral_names():
+    from data.generate import FIRST_NAMES
+
+    customers, _, _ = generate_all()
+    assert all(c["email"].endswith("@synthetic-bank.example.com") for c in customers)
+    assert {"Ananya", "Vikram", "Ishaan", "Meera"} <= set(FIRST_NAMES)

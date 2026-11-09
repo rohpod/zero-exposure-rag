@@ -1,107 +1,54 @@
 # Contributing
 
-Four of us are building this project in parallel during the IBM Z Datathon 2026. These rules keep us from breaking each other's work. They are short on purpose, so read them once.
+Zero-Exposure RAG is a small open project: an assistant for bank staff that keeps restricted documents and personal data away from people who are not cleared to see them. These rules keep contributions easy to review. They are short on purpose.
 
 ## Ground rules
 
-1. **Originality.** All project code is written by the team during the event window (17 to 18 October 2026). Libraries, models and public datasets are allowed, and each one goes into [THIRD_PARTY.md](THIRD_PARTY.md) as soon as we use it.
-2. **Synthetic data only.** Never put real personal data in the repository, on the VM or in a test.
-3. **No secrets in git.** Tokens, passwords, SSH keys and API keys stay in environment variables or git-ignored local config files. If you commit one by mistake, tell the group straight away so it can be rotated.
-4. **No hosted LLM APIs.** The model runs on the LinuxONE VM so that no data leaves the platform.
-5. **Be kind.** Follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+1. **Synthetic data only.** Never put real personal data in the repository, in a test or in a prompt.
+2. **No secrets in git.** Tokens, passwords and API keys stay in environment variables or git-ignored files (`.env`, `app/auth_tokens.local.json`). If you commit one by mistake, tell a maintainer straight away so it can be rotated.
+3. **Dependencies are tracked.** Adding a library, model or dataset means adding a row to [THIRD_PARTY.md](THIRD_PARTY.md) with its version, licence and link, and pinning the version in `requirements.txt` (runtime) or `requirements-dev.txt` (tests).
+4. **Be kind.** Follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-## Getting set up
+## Setup
 
-1. Accept the repository invite and clone the repo.
-2. Set your git identity. Use the email address verified on your GitHub account so your commits are credited to you.
+See [docs/development.md](docs/development.md) for the Python environment, the `.env` file, data generation, classifier training, running the server and running the tests.
 
-   ```
-   git config user.name "Your Name"
-   git config user.email "you@example.com"
-   ```
+## Branches
 
-3. Read [docs/PROJECT.docx](docs/PROJECT.docx) and [docs/PLAN.docx](docs/PLAN.docx).
-4. Confirm you can SSH into the team VM and clone the repo there.
-
-## Workflow
-
-1. Pick an issue, or create one from the Task template, and assign it to yourself.
-2. Create a branch from an up-to-date `main`.
-3. Commit small and often.
-4. Push the branch and open a pull request using the template.
-5. Your review partner reviews it. When the checks in the template are met, they squash and merge.
-6. Delete the branch after merging.
-
-`main` must always run. Never force-push to `main`.
-
-### Branch names
+Branch from an up-to-date `main`:
 
 ```
-stage<N>/<short-description>
+git switch main && git pull && git switch -c <type>/<short-name>
 ```
 
-Examples: `stage1/pii-detector`, `stage2/swap-real-retriever`, `stage4/evidence-screenshots`.
+Types: `feat`, `fix`, `docs`, `chore`, `ci`, `test`, `refactor`. Example: `fix/phone-pattern`.
 
-### Commit messages
+## Commits
 
-```
-stage<N> <component>: <imperative summary>
-```
+Use [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): summary`, in the imperative, under about 70 characters. Keep commits small.
 
-Components: `platform`, `data`, `retrieval`, `guards`, `redteam`, `dashboard`, `docs`, `infra`.
-
-Examples:
+Scopes: `app`, `guards`, `retrieval`, `data`, `redteam`, `dashboard`, `docs`, `ci`, `docker`.
 
 ```
-stage1 guards: add Luhn check for card numbers
-stage1 retrieval: filter by clearance before ranking
-stage3 redteam: score results by category
+fix(guards): detect +CC-NNN-NNNN phone numbers
+feat(redteam): add --shard option to the runner
+docs(docs): describe the security model
 ```
 
-Keep the summary under about 70 characters. Add a body if the reason is not obvious.
+## Pull requests
 
-### Pull requests
+1. Push your branch and open a pull request with the template. The title is a Conventional Commit.
+2. Fill in the task IDs, paste the test output and list any deviations from the plan.
+3. Tests are required. Every bug fix needs a test that fails without the fix.
+4. Before opening the PR, run `pytest -q`, `python data/generate.py` and `python app/guards/train_injection.py`.
+5. One maintainer approval is required. The maintainer squash-merges, and you delete the branch afterwards.
 
-- One purpose per pull request. Keep them small enough to review quickly.
-- Fill in the template. Say how you tested it.
-- Do not mix unrelated changes. If you spot a separate problem, open an issue for it.
-- Interface changes (anything in the shared interfaces section of the plan) must be announced to the whole group before the change is merged, and the plan must be updated in the same pull request.
+`main` must always work. Never force-push to `main`.
 
-### Reviews
+## Decisions
 
-| Author's track | Review partner |
-|---|---|
-| Platform (Member 1) | Member 2 |
-| Data and retrieval (Member 2) | Member 1 |
-| Guards (Member 3) | Member 4 |
-| Red team and product (Member 4) | Member 3 |
-
-The reviewer checks that the tests pass, the interface is respected, no secrets or real data are included and THIRD_PARTY.md is updated if a new resource was added. Review for correctness first. Style comes second.
-
-If your review partner is busy or blocked, ask anyone else on the team. Do not leave a pull request waiting.
-
-## Testing
-
-- Write tests alongside your code under `tests/<component>/` and run them with pytest before opening a pull request.
-- Anything that produces a trained model file or a number we will quote must be run on the VM, which is s390x and big-endian.
-- Each stage has its own tests listed in the plan. A track is finished only when they pass.
-
-## Dependencies and third-party resources
-
-- Add every new library, model or dataset to [THIRD_PARTY.md](THIRD_PARTY.md) with its version, licence and link.
-- Pin versions in `requirements.txt` once we start using a package.
-- Check the licence of any dataset before using it.
-- If a package does not install on s390x, say so in the group and use the fallback from the plan.
-
-## Decisions and environment notes
-
-- Record decisions that affect more than one person in [docs/decisions.md](docs/decisions.md).
-- Record facts about the VM in [docs/environment.md](docs/environment.md). Facts only, no guesses.
+Record decisions that affect more than one person in [docs/decisions.md](docs/decisions.md). Security invariants live in [docs/security-model.md](docs/security-model.md); change them only deliberately and update that document in the same PR.
 
 ## Reporting problems
 
-Open an issue using the Bug template. If you are blocked, also say so in the group chat. Do not wait quietly.
-
-## Definition of done
-
-A task is done when the code is merged to `main`, its tests pass, its docs are updated and it works on the VM.
+Open an issue with the Bug template. For anything that looks like a security problem, contact a maintainer directly instead of posting details publicly.
