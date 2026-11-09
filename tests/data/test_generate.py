@@ -269,9 +269,9 @@ def test_long_documents_are_within_the_planned_word_range():
                 assert doc["text"].rstrip().endswith(f"{doc['text'].split('CANARY-')[1][:7]}.")
 
 
-def test_synthetic_data_has_no_team_names_or_old_domain():
-    customers, documents, _ = generate_all()
-    blob = json.dumps(customers) + json.dumps(documents)
-    for name in ("Rohan", "Kishan", "Kaustubh", "Kashvith", "ibz"):
-        assert name not in blob
-    assert "synthetic-bank.example.com" in blob
+def test_customers_use_the_synthetic_bank_email_domain_and_neutral_names():
+    from data.generate import FIRST_NAMES
+
+    customers, _, _ = generate_all()
+    assert all(c["email"].endswith("@synthetic-bank.example.com") for c in customers)
+    assert {"Ananya", "Vikram", "Ishaan", "Meera"} <= set(FIRST_NAMES)

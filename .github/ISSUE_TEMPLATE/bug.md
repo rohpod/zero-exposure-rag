@@ -1,7 +1,7 @@
 ---
 name: Bug
 about: Something is broken or behaves unexpectedly
-title: "[bug] component: short description"
+title: "fix(scope): short description"
 labels: bug
 ---
 
@@ -13,4 +13,4 @@ labels: bug
 
 ## Environment
 
-<!-- Laptop or VM, branch, commit, relevant logs. Do not paste secrets. -->
+<!-- Python version, branch, commit, provider (mock or groq), relevant logs. Do not paste secrets. -->
