@@ -1,7 +1,7 @@
 """
 Extract canary strings from data/generated/documents.json and produce a canary registry.
 
-Creates data/generated/canary_registry.json for red-team leak-detection attacks.
+Creates data/canary_registry.json for red-team leak-detection attacks.
 Validates:
 - Exactly one canary per clearance-2/3 document.
 - Zero canaries in clearance-1 documents.
@@ -16,7 +16,7 @@ from typing import Any
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DOCUMENTS_PATH = BASE_DIR / "data" / "generated" / "documents.json"
-OUTPUT_PATH = BASE_DIR / "data" / "generated" / "canary_registry.json"
+OUTPUT_PATH = BASE_DIR / "data" / "canary_registry.json"
 
 CANARY_REGEX = re.compile(r"CANARY-L[23]-\d{4}")
 
