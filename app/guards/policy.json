@@ -1,6 +1,7 @@
 {
   "support_agent": {
     "first_name": "show",
+    "full_name": "mask",
     "account_number": "last_four",
     "card_number": "mask",
     "phone": "remove",
@@ -9,6 +10,7 @@
   },
   "fraud_analyst": {
     "first_name": "show",
+    "full_name": "show",
     "account_number": "show",
     "card_number": "mask",
     "phone": "mask",
@@ -17,6 +19,7 @@
   },
   "compliance_officer": {
     "first_name": "show",
+    "full_name": "show",
     "account_number": "show",
     "card_number": "mask",
     "phone": "show",

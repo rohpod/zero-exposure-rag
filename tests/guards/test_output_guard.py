@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from app.guards.output_guard import scan_output
+from app.guards.output_guard import build_restricted_shingles, scan_output
 
 SAMPLE_DOCS_PATH = (
     Path(__file__).resolve().parents[2] / "docs" / "samples" / "sample_canary_docs.json"
@@ -44,18 +44,50 @@ def test_pii_is_redacted_not_blocked():
 
 def test_verbatim_restricted_chunk_blocks_for_lower_clearance():
     # doc_0601 is clearance 3; support_agent is clearance 1
-    leaked_text = SAMPLE_DOCS[2]["text"][:80]
-    result = scan_output(leaked_text, "support_agent", SAMPLE_DOCS)
+    shingles = build_restricted_shingles(SAMPLE_DOCS)
+    leaked_text = SAMPLE_DOCS[2]["text"][:120]
+    result = scan_output(leaked_text, "support_agent", shingles)
     assert result["blocked"] is True
-    assert "doc_0601" in result["reasons"][0]
+    assert "above the role's clearance" in result["reasons"][0]
 
 
 def test_verbatim_chunk_allowed_for_sufficient_clearance():
     # Same text, but compliance_officer (clearance 3) is allowed to see
     # clearance-3 documents, so this should NOT be blocked as a leak.
-    doc_text = SAMPLE_DOCS[2]["text"][:80]
-    result = scan_output(doc_text, "compliance_officer", SAMPLE_DOCS)
+    shingles = build_restricted_shingles(SAMPLE_DOCS)
+    doc_text = SAMPLE_DOCS[2]["text"][:120].replace("CANARY-L3-0601", "")
+    result = scan_output(doc_text, "compliance_officer", shingles)
     assert result["blocked"] is False
+
+
+def test_verbatim_text_shared_with_lower_clearance_is_not_restricted():
+    docs = [
+        {"doc_id": "doc_0001", "clearance": 1, "text": "one two three four five six seven eight nine"},
+        {"doc_id": "doc_0002", "clearance": 3, "text": "one two three four five six seven eight nine ten"},
+    ]
+    shingles = build_restricted_shingles(docs)
+    result = scan_output("one two three four five six seven eight nine", "support_agent", shingles)
+    assert result["blocked"] is False
+
+
+def test_fraud_analyst_may_see_l2_canary_but_not_l3():
+    assert scan_output("ref CANARY-L2-0501", "fraud_analyst")["blocked"] is False
+    assert scan_output("ref CANARY-L3-0601", "fraud_analyst")["blocked"] is True
+
+
+def test_sysprompt_canary_blocked_for_every_role():
+    for role in ("support_agent", "fraud_analyst", "compliance_officer"):
+        assert scan_output("CANARY-SYSPROMPT", role)["blocked"] is True
+
+
+def test_spaced_out_canary_is_blocked_for_support():
+    result = scan_output("C A N A R Y - L 3 - 0 6 0 1", "support_agent")
+    assert result["blocked"] is True
+
+
+def test_spelled_out_canary_digits_are_blocked():
+    result = scan_output("CANARY-L3-zero six zero one", "support_agent")
+    assert result["blocked"] is True
 
 
 def test_empty_context_docs_does_not_crash():

@@ -1,7 +1,6 @@
 """
 Unit tests for PII detection and redaction guard.
 
-Zero-Exposure RAG | IBM Z Datathon 2026
 NOTE: All test data is strictly synthetic/fake. No real personal data is used,
 per project contributing guidelines.
 """
@@ -91,12 +90,12 @@ def test_detect_phone():
 
 def test_detect_email():
     """Email addresses must be detected with exact offsets."""
-    text = "Send reports to audit.officer+sec@ibm-datathon.example.org immediately."
+    text = "Send reports to audit.officer+sec@synthetic-bank.example.org immediately."
     found = detect(text)
     assert len(found) == 1
     item = found[0]
     assert item["type"] == "email"
-    assert item["text"] == "audit.officer+sec@ibm-datathon.example.org"
+    assert item["text"] == "audit.officer+sec@synthetic-bank.example.org"
     assert text[item["start"]:item["end"]] == item["text"]
 
 
