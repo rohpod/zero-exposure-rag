@@ -165,6 +165,52 @@ def test_merge_accepts_matching_shards():
     assert merged["shards"] == ["1/2", "2/2"] and merged["mode"] == "both"
 
 
+def test_merge_refuses_sharded_with_unsharded():
+    with pytest.raises(SystemExit, match="sharded"):
+        score.merge_meta([{**GOOD_META, "shard": "1/2"}, GOOD_META])
+
+
+@pytest.mark.parametrize("shards,expected", [
+    (["1/3"], "missing shard(s): 2/3, 3/3"),
+    (["1/3", "3/3"], "missing shard(s): 2/3"),
+    (["1/2", "1/2"], "duplicate shard(s): 1/2"),
+    (["1/2", "2/3"], "different totals"),
+])
+def test_incomplete_shards_are_not_quotable(shards, expected):
+    meta = {**GOOD_META, "shards": shards}
+    result = score.score([attack("pii:phone", "x")], POLICY, meta)
+    assert result["quotable"] is False
+    assert any(expected in r for r in result["quotable_reasons"])
+
+
+def test_complete_shards_are_quotable():
+    meta = {**GOOD_META, "shards": ["1/3", "2/3", "3/3"], "split": ["all"], "subset": []}
+    assert score.score([attack("pii:phone", "x")], POLICY, meta)["quotable"] is True
+
+
+@pytest.mark.parametrize("extra,expected", [
+    ({"split": ["dev"]}, "partial split"),
+    ({"split": "test"}, "partial split"),
+    ({"subset": ["redteam/subsets/dev_small.txt"]}, "subset run"),
+])
+def test_partial_runs_are_not_quotable(extra, expected):
+    result = score.score([attack("pii:phone", "x")], POLICY, {**GOOD_META, **extra})
+    assert result["quotable"] is False
+    assert any(expected in r for r in result["quotable_reasons"])
+
+
+def test_main_with_one_of_two_shards_is_not_quotable(tmp_path):
+    path = tmp_path / "r1.jsonl"
+    path.write_text(json.dumps(attack("pii:phone", "x", id="a1")) + "\n")
+    Path(f"{path}.meta.json").write_text(json.dumps({**GOOD_META, "shard": "1/2"}))
+    out = tmp_path / "scored"
+    policy = Path(__file__).resolve().parents[2] / "app" / "guards" / "policy.json"
+    score.main(["--results", str(path), "--policy", str(policy), "--out-dir", str(out)])
+    result = json.loads((out / "results.json").read_text())
+    assert result["quotable"] is False
+    assert "missing shard(s): 2/2" in result["quotable_reasons"]
+
+
 def test_main_merges_result_files(tmp_path):
     for i in (1, 2):
         path = tmp_path / f"r{i}.jsonl"

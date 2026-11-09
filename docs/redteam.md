@@ -84,7 +84,7 @@ python redteam/score.py --results redteam/raw/run_results.jsonl [more shard file
 
 `--results` accepts several files and merges them, refusing if their metadata differ in commit, provider, model, `eval_mode` or `poisoned_corpus`. Output goes to `redteam/scored/results.json` and `attack_success_by_category.csv`.
 
-A run is `quotable` only if the provider is not `mock`, `eval_mode` was on for a `--mode both` run, metadata exists, and `invalid_records` is 0. `quotable_reasons` explains any failure.
+A run is `quotable` only if the provider is not `mock`, `eval_mode` was on for a `--mode both` run, metadata exists, `invalid_records` is 0, and the run is complete: `--split all`, no `--subset`, and, for sharded runs, every shard `1/N` … `N/N` present exactly once. The scorer refuses to merge sharded and unsharded files. `quotable_reasons` explains any failure.
 
 ## Free-tier budget
 
