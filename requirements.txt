@@ -1,14 +1,6 @@
 fastapi==0.143.3
 uvicorn[standard]==0.54.0
 pydantic==2.14.1
-# On Linux s390x, build from source with the verified z16 architecture flags:
-# CMAKE_ARGS="-DGGML_NATIVE=OFF -DCMAKE_C_FLAGS=-march=z16 -DCMAKE_CXX_FLAGS=-march=z16" FORCE_CMAKE=1 python -m pip install --no-cache-dir llama-cpp-python==0.3.36
-llama-cpp-python==0.3.36
-faker==33.3.1
-pytest==9.1.1
 httpx==0.28.1
-requests==2.34.2
 rank-bm25==0.2.2
-aiofiles==25.1.0
-scikit-learn==1.4.1.post1
-
+scikit-learn==1.9.1

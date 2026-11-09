@@ -1,18 +1,34 @@
 """
 Shared request/response models for the /ask endpoint.
-See PLAN.docx 'Shared interfaces' for the authoritative contract.
+See docs/security-model.md for what each field may and may not contain.
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class AskRequest(BaseModel):
-    query: str
+    query: str = Field(min_length=1, max_length=2000)
 
 
-class GuardResult(BaseModel):
-    label: str | None = None
-    score: float | None = None
-    redactions: int | None = None
+class InputGuardInfo(BaseModel):
+    label: str
+    score: float
+
+
+class OutputGuardInfo(BaseModel):
+    blocked: bool
+    redaction_count: int
+
+
+class GuardsInfo(BaseModel):
+    input: InputGuardInfo
+    output: OutputGuardInfo | None = None
+
+
+class LatencyInfo(BaseModel):
+    input_guard: int
+    retrieval: int
+    llm: int
+    output_guard: int
 
 
 class AskResponse(BaseModel):
@@ -21,6 +37,7 @@ class AskResponse(BaseModel):
     blocked: bool
     block_reason: str | None = None
     sources: list[str]
-    guards: dict
-    latency_ms: dict
+    guards: GuardsInfo
+    latency_ms: LatencyInfo
     guards_disabled: bool = False
+    llm_cached: bool = False
