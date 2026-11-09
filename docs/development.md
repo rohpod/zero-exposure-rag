@@ -21,11 +21,7 @@ cp .env.example .env
 
 Auth tokens come from `AUTH_TOKENS_JSON` if it is set, otherwise from `AUTH_TOKENS_FILE` (default `app/auth_tokens.local.json`). To use a file: `cp app/auth_tokens.example.json app/auth_tokens.local.json`.
 
-The server does not read `.env` by itself; export the variables or use Docker Compose (`env_file`). For example:
-
-```bash
-set -a && . ./.env && set +a
-```
+Outside Docker the server does not read `.env` by itself: pass variables inline as in the examples below, or let Docker Compose load the file (`env_file`). Without Docker, use the token file (`app/auth_tokens.local.json`) rather than `AUTH_TOKENS_JSON`, which is awkward to quote in a shell.
 
 ## Generate data and train the classifier
 
