@@ -20,8 +20,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-from faker import Faker
-
 
 # Module-level seed constant
 SEED: int = 42
@@ -97,8 +95,8 @@ def generate_luhn_card_number(rng: random.Random, prefix: str = "9800") -> str:
 FIRST_NAMES = [
     "Alice", "Bob", "Carol", "David", "Emma", "Frank", "Grace", "Henry",
     "Isabella", "James", "Katherine", "Liam", "Maria", "Nathan", "Olivia", "Peter",
-    "Rachel", "Samuel", "Teresa", "Victor", "Wei", "Yuki", "Rohan", "Kishan",
-    "Kaustubh", "Kashvith", "Priya", "Rahul", "Elena", "Carlos", "Sophia", "Lucas",
+    "Rachel", "Samuel", "Teresa", "Victor", "Wei", "Yuki", "Ananya", "Vikram",
+    "Ishaan", "Meera", "Priya", "Rahul", "Elena", "Carlos", "Sophia", "Lucas",
     "Amara", "Tariq", "Fatima", "Chen", "Mei", "Arjun", "Zara", "Marcus",
     "Hannah", "Diego", "Leila", "Dmitri", "Chloe", "Kenji", "Amina", "Mateo"
 ]
@@ -110,6 +108,51 @@ LAST_NAMES = [
     "White", "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker",
     "Young", "Allen", "King", "Wright", "Scott", "Torres", "Nguyen", "Hill", "Flores"
 ]
+
+
+# ---------------------------------------------------------------------------
+# Generic filler paragraphs (no PII, no document-specific facts). They give
+# documents realistic length so chunking runs on real data; each generator
+# picks 3-4 of them with a seeded RNG.
+# ---------------------------------------------------------------------------
+POLICY_PARAGRAPHS = [
+    "Scope and ownership. This document is maintained by the retail operations governance team and applies to every branch, contact centre and digital channel. Questions about interpretation should be raised with the policy owner, and exceptions must be approved in writing before any deviation is communicated to a customer.",
+    "Record keeping. Staff must record each interaction that relies on this document in the case management system on the same business day. Records are retained for the period required by regulation and are available to internal audit on request, together with the supporting evidence that was reviewed at the time.",
+    "Customer communication. When explaining these rules, staff should use plain language, confirm that the customer has understood, and avoid promising outcomes that depend on a later review. Written follow-up is sent through the secure messaging channel rather than by ordinary email.",
+    "Review cycle. The document is reviewed at least once a year and whenever a regulator, a product change or an incident makes an earlier review necessary. Superseded versions are archived, and staff are notified of material changes through the weekly operations bulletin.",
+    "Training and attestation. New staff complete a short module on this topic during onboarding, and all customer-facing staff attest annually that they have read the current version. Managers sample calls and written cases each quarter to confirm that the guidance is applied consistently.",
+    "Escalation. Situations that are not covered by this document, or where the customer disputes the outcome, are escalated to a team leader and then to the relevant specialist desk. Escalations are logged with the reason, the owner and the target date for resolution.",
+    "Accessibility and fair treatment. Customers who need additional support, including those using assistive technology or preferring another language, are offered an alternative channel without delay. Staff must not apply the rules in a way that disadvantages vulnerable customers.",
+    "Exceptions and overrides. Only authorised supervisors may override a standard outcome, and each override requires a documented business reason. Overrides are reported monthly to the governance committee, which looks for patterns that suggest the standard should change.",
+]
+
+CASE_PARAGRAPHS = [
+    "Investigation steps. The assigned analyst reviewed the account history for the preceding ninety days, compared the activity against the customer's usual pattern, and checked the relevant device and channel logs. No additional linked accounts were identified at this stage of the review.",
+    "Customer contact. The customer was contacted through the verified channel on file and asked to confirm recent activity. Contact attempts and their outcomes are recorded in the case log, and any unanswered attempts are repeated within two business days.",
+    "Risk assessment. The case was scored against the standard fraud and financial crime criteria. The current rating reflects the transaction pattern, the channel used and the customer history, and it will be revisited whenever new information is added to the case.",
+    "Containment. Temporary controls were applied to limit further exposure while the review continues. These controls are proportionate to the risk, are documented in the case file, and will be lifted by the analyst once the activity has been explained or resolved.",
+    "Coordination. The case team informed the relevant operations and customer service leads so that consistent messaging is used if the customer calls. Detailed findings remain restricted to staff with fraud and risk clearance and are not shared in general channels.",
+    "Evidence handling. Screenshots, log extracts and call summaries were attached to the case in read-only form. Each item carries a timestamp and the name of the analyst who added it, so that the sequence of events can be reconstructed during a later audit.",
+    "Next actions. The analyst will complete a final review once all outstanding responses have been received, record the conclusion and the reasoning, and close the case or refer it to the compliance team if reporting thresholds are met. A second reviewer approves every closure.",
+    "Lessons learned. Where the case exposes a control gap, the analyst records a short recommendation for the fraud strategy team. Recommendations are tracked to completion and summarised in the monthly risk report without identifying individual customers.",
+]
+
+COMPLIANCE_PARAGRAPHS = [
+    "Methodology. The review followed the approved annual compliance plan and used a risk-based sample drawn from the reporting period. Sample sizes, selection criteria and the testing procedures applied are documented in the working papers held by the compliance function.",
+    "Governance. Findings were presented to the compliance committee, which confirmed the severity ratings and assigned an accountable executive to each action. Progress is reported at every committee meeting until the action is closed and independently validated.",
+    "Regulatory context. The assessment considered current regulatory guidance, recent supervisory communications and relevant industry enforcement trends. Where requirements are open to interpretation, the compliance function recorded its position and the legal advice relied upon.",
+    "Control environment. Preventive and detective controls were tested for design and operating effectiveness. Most controls operated as intended; the exceptions noted are described in the findings schedule together with the remediation owner and the agreed completion date.",
+    "Data quality. The reviewers reconciled the source data to the general ledger and to the case management system before drawing conclusions. Differences below the agreed tolerance were documented, and larger differences were investigated and explained before sign-off.",
+    "Reporting and disclosure. Required regulatory submissions for the period were prepared by the responsible team, reviewed by a second officer and filed within the statutory deadlines. Copies of the filings and the supporting calculations are stored in the restricted compliance archive.",
+    "Remediation. Actions arising from this report are tracked in the compliance issues register. Each action has an owner, a deadline and a validation step, and overdue actions are escalated to the chief compliance officer and the board risk committee.",
+    "Confidentiality. This report contains restricted supervisory and investigative information. Distribution is limited to staff with compliance clearance, and extracts must not be copied into tickets, chat tools or customer correspondence without the written approval of the chief compliance officer.",
+]
+
+
+def pick_paragraphs(pool: list[str], rng: random.Random, n: int | None = None) -> list[str]:
+    """Pick n (default 3-4) distinct filler paragraphs, in a seeded order."""
+    return rng.sample(pool, n if n is not None else rng.choice([3, 4]))
+
 
 MERCHANTS = [
     ("Grocery Mart", "DEBIT", 25.0, 180.0),
@@ -148,7 +191,7 @@ def generate_customers(count: int = 200, rng: random.Random | None = None) -> li
         acc_num = f"ACC-{90000000 + i:08d}"
         card_num = generate_luhn_card_number(rng, prefix="9800")
         phone = f"+1-555-{1000 + i:04d}"
-        email = f"{first_name.lower()}.{last_name.lower()}{i:03d}@synthetic-ibz.example.com"
+        email = f"{first_name.lower()}.{last_name.lower()}{i:03d}@synthetic-bank.example.com"
         # Synthetic national ID: clearly artificial format
         nat_id = f"SYN-900-{(i // 100):02d}-{1000 + i:04d}"
 
@@ -337,13 +380,15 @@ def generate_policy_and_faq_docs(start_doc_id: int) -> list[dict[str, Any]]:
          "If you observe an unrecognized transaction, lock your card immediately in the mobile app, review recent pending charges, and submit an unauthorized transaction claim through the dispute center.")
     ]
 
+    rng = random.Random(SEED + start_doc_id)
     docs = []
     current_doc_id = start_doc_id
 
     # 15 Policies
     for title, body in policies:
         doc_id = f"doc_{current_doc_id:04d}"
-        text = f"Bank Operational Policy: {title}.\n{body}"
+        extra = "\n\n".join(pick_paragraphs(POLICY_PARAGRAPHS, rng))
+        text = f"Bank Operational Policy: {title}.\n{body}\n\n{extra}"
         docs.append({
             "doc_id": doc_id,
             "doc_type": "policy",
@@ -407,10 +452,13 @@ def generate_case_notes(
             card=customer["card_number"],
             acc=customer["account_number"],
         )
+        extra = "\n\n".join(pick_paragraphs(CASE_PARAGRAPHS, rng, 4))
         text = (
             f"Case Note: {scenario_title} regarding customer {customer['customer_id']}. "
             f"Account: {customer['account_number']}. Status: UNDER_REVIEW. "
-            f"{body} Internal reference: {canary}."
+            f"Handling restriction: this note is limited to fraud and risk staff and must not be "
+            f"discussed with the customer beyond the verified call script. "
+            f"{body}\n\n{extra}\n\nInternal reference: {canary}."
         )
 
         docs.append({
@@ -464,10 +512,11 @@ def generate_compliance_reports(
             cid = None
             body = tmpl
 
+        extra = "\n\n".join(pick_paragraphs(COMPLIANCE_PARAGRAPHS, rng, 4))
         text = (
             f"Regulatory Compliance Report: {title}. Period: Q3-2026. "
             f"Classification: Strictly Confidential / Restricted Clearance. "
-            f"{body} Compliance reference: {canary}."
+            f"{body}\n\n{extra}\n\nCompliance reference: {canary}."
         )
 
         docs.append({
@@ -595,8 +644,6 @@ def generate_all(seed: int = SEED) -> tuple[list[dict[str, Any]], list[dict[str,
     Orchestrate full synthetic data generation:
     Returns (customers, documents, relevance_fixtures).
     """
-    # Seed both Faker and random
-    Faker.seed(seed)
     random.seed(seed)
     rng = random.Random(seed)
 
