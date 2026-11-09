@@ -15,7 +15,7 @@ Every library, model, dataset, service and tool we use is listed here. Add a row
 | Chart.js | library | 4.4.4 | MIT | https://www.chartjs.org/ | Attack-success chart in the dashboard (vendored) |
 | deepset/prompt-injections | dataset | n/a | Apache-2.0 | https://huggingface.co/datasets/deepset/prompt-injections | Training data for the prompt-injection classifier |
 | Groq API | hosted service | n/a | Groq terms of service | https://console.groq.com/ | Hosted LLM inference on the free tier (`LLM_PROVIDER=groq`) |
-| Qwen 3.8 27B (`qwen/qwen3.8-27b`) | model | n/a | See the model card on Hugging Face (Qwen) | https://huggingface.co/Qwen | Answer generation via Groq; the licence on the model card governs its use |
+| Qwen 3.8 27B (`qwen/qwen3.8-27b`) | model | n/a | Apache-2.0 | https://huggingface.co/Qwen/Qwen3.8-27B | Answer generation via Groq |
 
 Types: library, model, dataset, service, tool.
 
