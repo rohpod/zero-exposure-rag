@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    env_file: .env
+    environment:
+      AUDIT_DB_PATH: /data/audit.sqlite3
+    ports:
+      - "8000:8000"
+    volumes:
+      - audit-data:/data
+
+volumes:
+  audit-data:

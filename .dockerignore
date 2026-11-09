@@ -4,8 +4,11 @@ venv/
 __pycache__/
 *.pyc
 models/
+*.sqlite
 *.sqlite3
 .env
 app/auth_tokens.local.json
 docs/samples/
 data/generated/
+data/cache/
+redteam/raw/

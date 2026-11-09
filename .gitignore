@@ -27,16 +27,16 @@ secrets/
 *.local.yml
 config.local.*
 
-# Models. Weights are large and the classifier is retrained on the VM.
+# Models. Weights are large and the classifier is retrained at build time.
 models/
-*.gguf
 *.safetensors
 *.onnx
 *.pkl
 *.joblib
 
-# Generated data and databases
+# Generated data, caches and databases
 data/generated/
+data/cache/
 *.sqlite
 *.sqlite3
 *.db
