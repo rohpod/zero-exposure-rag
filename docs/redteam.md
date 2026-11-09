@@ -65,8 +65,8 @@ Options:
 
 | Flag | Meaning |
 |---|---|
-| `--split dev|test|all` | Which split to run (default `dev`) |
-| `--mode off|on|both` | Guards off, on, or both. Benign queries always run with guards on |
+| `--split dev`, `test` or `all` | Which split to run (default `dev`) |
+| `--mode off`, `on` or `both` | Guards off, on, or both. Benign queries always run with guards on |
 | `--subset FILE` | Only IDs listed in the file |
 | `--shard i/N` | Run the i-th of N deterministic shards (1-based), for splitting work across people |
 | `--min-interval S` | Seconds between requests (default 6) for free-tier limits |

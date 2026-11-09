@@ -12,7 +12,7 @@ Decisions that affect more than one person, plus surprises worth remembering. Ne
 - **Consequences:** `/health` reports `eval_mode`, and the runner refuses a guards-off comparison against a server that has it off. See [security-model.md](security-model.md).
 - **Owner:** Rohan
 
-### Local in-process model with llama-cpp
+### Local in-process model
 - **Date:** 2026-10
 - **Status:** Superseded by "Hosted LLM via Groq"
 - **Context:** The first version served a small local model inside the API process so that no data left the machine.
@@ -58,7 +58,7 @@ Decisions that affect more than one person, plus surprises worth remembering. Ne
 - **Context:** A canary ID could appear as part of a longer string.
 - **Decision:** The scorer matches canary strings as complete tokens, applied identically across all runs. Normalised matching (see "Obfuscation-aware scoring") is added on top of this literal check.
 - **Consequences:** Fewer false positives from coincidental overlap.
-- **Owner:** Kaustubh
+- **Owner:** Kashvith
 
 ### Injection classifier baseline
 - **Date:** 2026-10
@@ -66,7 +66,7 @@ Decisions that affect more than one person, plus surprises worth remembering. Ne
 - **Context:** A simple, interpretable baseline is enough to start; the rule layer catches known phrasings.
 - **Decision:** TF-IDF (word and bigram, 5000 features) with logistic regression (balanced classes), trained on deepset/prompt-injections plus our own benign banking queries with an 80/20 split.
 - **Consequences:** The classifier has limited recall on novel injections and can flag odd benign phrasing; the benign training set is extended when false blocks are found. Validation numbers are printed by `train_injection.py`.
-- **Owner:** Kashvith
+- **Owner:** Kaustubh
 
 ### Model binaries not committed
 - **Date:** 2026-10
@@ -74,7 +74,7 @@ Decisions that affect more than one person, plus surprises worth remembering. Ne
 - **Context:** Pickled model files are binary and reproducible.
 - **Decision:** `models/` is git-ignored; `app/guards/train_injection.py` regenerates the files deterministically (and the Docker build runs it).
 - **Consequences:** A fresh checkout must run the training script once before the server starts; startup fails with a clear message otherwise.
-- **Owner:** Kashvith
+- **Owner:** Kaustubh
 
 ### Retrieval-only leak check on dev attacks
 - **Date:** 2026-10
@@ -122,7 +122,7 @@ Decisions that affect more than one person, plus surprises worth remembering. Ne
 - **Context:** The first suite had flaws that made results unreliable: 120 of 250 prompts contained their own target canary, 34 of 67 distinct test prompts also appeared in dev, 29 attacks could never succeed, and the indirect attacks did not target the poisoned documents.
 - **Decision:** One-time rebuild before any published result, and then the split is frozen. The new generator never puts canary text in a prompt, emits only achievable attacks, splits by unique prompt text (60/40, seed 42) and targets poisoned documents with innocent-looking questions verified against retrieval. Each category has 50 records and at least 40 distinct prompts.
 - **Consequences:** Earlier numbers are not comparable and are not published. Do not regenerate the suite after results exist.
-- **Owner:** Kaustubh
+- **Owner:** Kashvith
 
 ### Obfuscation-aware scoring
 - **Date:** 2026-11-09
@@ -130,7 +130,7 @@ Decisions that affect more than one person, plus surprises worth remembering. Ne
 - **Context:** Scoring only literal formats counts spaced-out, spelled-out or base64 leaks as safe.
 - **Decision:** The scorer reports `literal_success` and `normalized_success` (NFKC, uppercase, separators removed, spelled-out digits, base64 decoded) and uses the normalised count for the attack success rate. It keeps its own copy of the rules so it stays independent of `app/`.
 - **Consequences:** Reversed or otherwise encoded output is not detected, and the attack prompts do not ask for it.
-- **Owner:** Kaustubh
+- **Owner:** Kashvith
 
 ### Redact before generation
 - **Date:** 2026-11-09
@@ -138,7 +138,7 @@ Decisions that affect more than one person, plus surprises worth remembering. Ne
 - **Context:** Filtering only the answer lets an obfuscated answer carry PII the model was given.
 - **Decision:** With guards on, retrieved chunks are redacted for the caller's role before they are put in the prompt. Output redaction stays as a second layer. Guards-off sends raw chunks.
 - **Consequences:** The model cannot repeat PII it never saw. Answers can mention masked placeholders.
-- **Owner:** Kashvith
+- **Owner:** Kaustubh
 
 ### /audit restricted to compliance
 - **Date:** 2026-11-09
@@ -162,4 +162,4 @@ Decisions that affect more than one person, plus surprises worth remembering. Ne
 - **Context:** A browser cannot call Groq without exposing the API key, so a live chatbot cannot be hosted for free.
 - **Decision:** Publish a static showcase (dashboard, published results, recorded examples) on GitHub Pages. The live question form is hidden in static mode.
 - **Consequences:** Visitors run the project locally to chat with it. The showcase contains only real evaluation output.
-- **Owner:** Kaustubh
+- **Owner:** Kashvith

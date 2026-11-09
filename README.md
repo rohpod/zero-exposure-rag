@@ -1,162 +1,117 @@
-# BIG DATA ENERGY: Zero-Exposure RAG
+# Zero-Exposure RAG
 
-IBM Z Datathon 2026 | Theme: AI Secured, Innovation Without Exposure | Platform: IBM LinuxONE Community Cloud | Event code: SSF2026
+An assistant for bank staff that answers questions from internal documents while keeping restricted documents and personal data away from people who aren't cleared to see them.
 
-> **Repository status.** This repository was created before the event with documentation and configuration files only. All project code was written during the Datathon window, 17 to 18 October 2026. The commit history shows this.
+[![CI](https://github.com/rohpod/zero-exposure-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/rohpod/zero-exposure-rag/actions/workflows/ci.yml) · Static demo: set up after the first deployment (see the Pages note below)
 
-## Problem
+> All data is synthetic. Prompts are sent to a hosted LLM (Groq) when `LLM_PROVIDER=groq`, so never use real customer data.
 
-To be completed at submission.
+## What it is
 
-## Solution overview
+A FastAPI service in front of a small retrieval-augmented generation pipeline. Each request carries a token that maps to one of three roles: support agent, fraud analyst or compliance officer. The role decides which documents can be retrieved and which personal data is visible. Guards check the question before the model sees it and the answer before the user sees it, and every request is written to an audit log.
 
-To be completed at submission.
+## How it works
 
-## Architecture
+```mermaid
+flowchart TD
+    A[POST /ask with X-User-Token] --> B{Token valid?}
+    B -- no --> X1[401 + audit row]
+    B -- yes --> C[Role from token]
+    C --> D[Input guard: rules + classifier]
+    D -- injection or exfil --> X2[Blocked: no retrieval, audit row]
+    D -- ok --> E[Retrieval from the role's clearance index only]
+    E --> F[Redact retrieved context for the role]
+    F --> G[LLM: Groq or mock]
+    G -- LLM error --> X3[429 / 503 / 500 + audit row]
+    G --> H[Output guard: canaries, restricted text, PII redaction]
+    H -- leak detected --> X4[Blocked: empty answer, no sources, audit row]
+    H -- ok --> I[Answer + audit row]
+```
 
-To be completed at submission. The flowchart image will be added under docs/.
+## Security model
 
-## How it uses IBM Z and LinuxONE
+Role comes only from the token, restricted documents are never in the index a lower role searches, personal data is redacted before the model sees it and again after, and card numbers are always masked. The full list of invariants and the threat model, including what is not protected, is in [docs/security-model.md](docs/security-model.md).
 
-To be completed at submission. Include the instance details, what runs on it and the evidence screenshots.
+## Quickstart
 
-## Getting started
+With Docker (works offline with the mock model):
 
-### Prerequisites
-
-Ensure the following tools and environment are set up on the host (e.g. LinuxONE s390x VM with Ubuntu 24.04):
-- **Docker** 24.0+
-- **Python** 3.12+ (if running generation or test scripts outside Docker)
-
-#### 1. Configure local auth tokens
-Copy the example token mapping to the git-ignored local configuration file:
 ```bash
-cp app/auth_tokens.example.json app/auth_tokens.local.json
+cp .env.example .env
+# optional: set LLM_PROVIDER=groq and GROQ_API_KEY=... in .env (keep LLM_PROVIDER=mock to run without a key)
+docker compose up --build
 ```
 
-#### 2. Generate synthetic corpus and models (host-side)
-If running or testing locally on the host:
-- Generate the synthetic banking documents (`data/generated/documents.json`), relevance fixtures, and customer records:
-  ```bash
-  python3 data/generate.py
-  ```
-  *(Note: this step is also automatically executed during `docker build` so the image contains the generated corpus).*
+Then, in another terminal, ask a question as each role:
 
-- Train the injection classifier and TF-IDF vectorizer (creates `models/injection_classifier.pkl` and `models/injection_vectorizer.pkl`):
-  ```bash
-  python3 app/guards/train_injection.py
-  ```
-
-#### 3. Model weights
-Create the `models/` directory and place the Granite GGUF model inside it:
 ```bash
-mkdir -p models
-# Copy or download granite-4.0-h-350m-base-be.f16.gguf into models/
-```
-Model location expected by the pipeline:
-`models/granite-4.0-h-350m-base-be.f16.gguf` (see [docs/environment.md](docs/environment.md) for details).
+curl -s -X POST http://localhost:8000/ask -H "Content-Type: application/json" \
+  -H "X-User-Token: tok_support_01" \
+  -d '{"query": "What is the daily ATM withdrawal limit?"}'
 
----
+curl -s -X POST http://localhost:8000/ask -H "Content-Type: application/json" \
+  -H "X-User-Token: tok_fraud_01" \
+  -d '{"query": "Why was a suspicious transaction velocity case opened for customer c_001?"}'
 
-### Run
-
-#### 1. Build the Docker image
-Build the container image from a clean checkout without using cache:
-```bash
-docker build --no-cache -t zero-exposure-rag .
+curl -s -X POST http://localhost:8000/ask -H "Content-Type: application/json" \
+  -H "X-User-Token: tok_compliance_01" \
+  -d '{"query": "What did the quarterly OFAC sanctions screening audit conclude?"}'
 ```
 
-#### 2. Run the container
+Other endpoints: `GET /health`, `GET /audit` (compliance token only) and the dashboard at `/dashboard/`.
 
-##### Option A: Default Stub Mode
-Runs the container in stub mode (deterministic canned responses, no model weights required):
-```bash
-docker run -d -p 8000:8000 \
-  -v $(pwd)/app/auth_tokens.local.json:/app/app/auth_tokens.local.json \
-  --name rag-stub zero-exposure-rag
-```
+Without Docker, see [docs/development.md](docs/development.md).
 
-##### Option B: Real Mode (Live Model & Trained Guards)
-Runs the full pipeline with live LLM inference and trained injection models mounted into the container:
-```bash
-docker run -d -p 8000:8000 \
-  -e STUB_MODE=0 \
-  -v $(pwd)/models:/app/models \
-  -v $(pwd)/app/auth_tokens.local.json:/app/app/auth_tokens.local.json \
-  --name rag-prod zero-exposure-rag
-```
+## Configuration
 
-#### 3. Verify endpoints
+Set these in `.env` (Docker Compose) or the environment.
 
-##### Health Check
-Verify service status and whether the model is loaded:
-```bash
-curl -s http://localhost:8000/health
-```
-Expected response:
-```json
-{"status":"ok","stub_mode":...,"model_loaded":...}
-```
+| Variable | Default | Notes |
+|---|---|---|
+| `LLM_PROVIDER` | `mock` | `mock` or `groq` |
+| `LLM_MODEL` | `qwen/qwen3.8-27b` | Ignored by the mock |
+| `GROQ_API_KEY` | none | Required when the provider is `groq` |
+| `LLM_MAX_TOKENS` | `200` | Maximum tokens per answer |
+| `LLM_TIMEOUT_S` | `30` | Seconds before an LLM request times out |
+| `LLM_MOCK_MODE` | `fixed` | `fixed`, `echo` or `leaky` |
+| `LLM_CACHE` | `0` | `1` caches responses in SQLite (use for evaluation runs) |
+| `RETRIEVAL_K` | `3` | Chunks retrieved per question |
+| `EVAL_MODE` | `0` | `1` honours `X-Guards: off`; keep 0 for any demo |
+| `POISONED_CORPUS` | `0` | `1` loads the poisoned documents |
+| `AUTH_TOKENS_JSON` | none | JSON string of tokens; overrides the file |
+| `AUTH_TOKENS_FILE` | `app/auth_tokens.local.json` | Token file |
+| `AUDIT_DB_PATH` | `audit.sqlite3` | SQLite audit database |
+| `PORT` | `8000` | Port used by the Docker `CMD` |
 
-##### Pipeline Requests (`/ask`) across Role Tokens
-Verify requests with each role's token:
+## Evaluation
 
-- **Support Agent** (`tok_support_01`, clearance level 1):
-  ```bash
-  curl -s -X POST http://localhost:8000/ask \
-    -H "Content-Type: application/json" \
-    -H "X-User-Token: tok_support_01" \
-    -d '{"query": "What are the standard branch operating hours?"}'
-  ```
+A red-team suite attacks the system in five categories: direct injection, indirect injection through poisoned documents, role spoofing, bulk PII extraction and obfuscated exfiltration. Each category has 50 attack records; 100 benign queries measure false blocks. An attack succeeds if the response contains a canary or PII the caller's role may not see; blocked responses and errors never count as successes. Records are split 60/40 into dev and test by unique prompt, and tuning uses only dev. Every attack is run with the guards off and on to measure what the guards add.
 
-- **Fraud Analyst** (`tok_fraud_01`, clearance level 2):
-  ```bash
-  curl -s -X POST http://localhost:8000/ask \
-    -H "Content-Type: application/json" \
-    -H "X-User-Token: tok_fraud_01" \
-    -d '{"query": "Check wire transfer anomalies for account 4821."}'
-  ```
-
-- **Compliance Officer** (`tok_compliance_01`, clearance level 3):
-  ```bash
-  curl -s -X POST http://localhost:8000/ask \
-    -H "Content-Type: application/json" \
-    -H "X-User-Token: tok_compliance_01" \
-    -d '{"query": "Provide executive summary of regulatory audit findings."}'
-  ```
-
-##### Inspect Audit Log
-Verify that requests are recorded in SQLite audit storage:
-```bash
-curl -s http://localhost:8000/audit
-```
+Run it with [docs/development.md](docs/development.md) (dev subset) and read the rules in [docs/redteam.md](docs/redteam.md).
 
 ## Results
 
-To be completed at submission. Attack success with guards off versus on, benign false-block rate and latency, from the held-out test set.
+Pending the first full evaluation run.
 
 ## Limitations
 
-To be completed at submission.
+- Prompts go to a hosted LLM, so only synthetic data may be used.
+- PII detection uses patterns and word lists; unusual formats and names can slip through.
+- There is no per-customer scoping: a support agent can read every customer's clearance-1 records.
+- The Groq free tier has rate limits, which makes full evaluation runs slow.
+- The static demo has no live chat; run the project locally to ask questions.
 
 ## Team
 
 | Name | Role | GitHub |
 |---|---|---|
-| Rohan | Platform lead | [@rohpod](https://github.com/rohpod) |
-| Kishan | Data and retrieval lead | [@anskishan](https://github.com/anskishan) |
-| Kaustubh | Guards lead | [@kaus1201](https://github.com/kaus1201) |
-| Kashvith | Red team and product lead | [@kash-0825](https://github.com/kash-0825) |
+| Rohan | Platform | [@rohpod](https://github.com/rohpod) |
+| Kishan | Data and retrieval | [@anskishan](https://github.com/anskishan) |
+| Kaustubh | Guards | [@kaus1201](https://github.com/kaus1201) |
+| Kashvith | Red team and product | [@kash-0825](https://github.com/kash-0825) |
 
-## Documentation
+See [CONTRIBUTING.md](CONTRIBUTING.md), [docs/decisions.md](docs/decisions.md) and [THIRD_PARTY.md](THIRD_PARTY.md).
 
-- [Contributing guide](CONTRIBUTING.md)
-- [Third-party resources](THIRD_PARTY.md)
-- [Technical decisions](docs/decisions.md)
-- [Environment setup](docs/environment.md)## Credits
-
-Every library, model and dataset we use is listed with its licence in [THIRD_PARTY.md](THIRD_PARTY.md).
-
-## Licence
+## License
 
 MIT. See [LICENSE](LICENSE).

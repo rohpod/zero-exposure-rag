@@ -1,4 +1,5 @@
-# Each path is owned for review purposes by the maintainer of the matching track.
+# Each path is assigned to the review partner of the track that builds it.
+# Tracks: Platform (Rohan), Data and retrieval (Kishan), Guards (Kaustubh), Red team and product (Kashvith).
 # Later rules take precedence over earlier ones.
 
 *                   @rohpod
