@@ -2,7 +2,7 @@
 
 An assistant for bank staff that answers questions from internal documents while keeping restricted documents and personal data away from people who aren't cleared to see them.
 
-[![CI](https://github.com/rohpod/zero-exposure-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/rohpod/zero-exposure-rag/actions/workflows/ci.yml) · Static demo: set up after the first deployment (see the Pages note below)
+[![CI](https://github.com/rohpod/zero-exposure-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/rohpod/zero-exposure-rag/actions/workflows/ci.yml) · [Static demo](https://rohpod.github.io/zero-exposure-rag/)
 
 > All data is synthetic. Prompts are sent to a hosted LLM (Groq) when `LLM_PROVIDER=groq`, so never use real customer data.
 
