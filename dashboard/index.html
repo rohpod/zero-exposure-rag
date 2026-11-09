@@ -202,6 +202,28 @@
     text-align: center;
     border: 1px dashed var(--panel-border);
   }
+
+  .banner {
+    border: 1px solid var(--leak);
+    color: var(--leak);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin: 0 0 16px;
+    font-size: 13px;
+  }
+  .banner.info { border-color: var(--accent); color: var(--accent); }
+  .run-local {
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .run-local strong { color: var(--text); display: block; margin-bottom: 4px; }
+  .example { border: 1px solid var(--panel-border); border-radius: 6px; padding: 12px 14px; margin-bottom: 12px; background: var(--panel); }
+  .example .cat { color: var(--accent); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .example pre { white-space: pre-wrap; word-break: break-word; margin: 6px 0 0; font-family: var(--mono); font-size: 12px; }
+  .example .lbl { color: var(--text-dim); font-size: 12px; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -234,6 +256,7 @@
       <div class="answer-text" id="liveText"></div>
       <div class="meta" id="liveMeta"></div>
     </div>
+    </div>
   </aside>
 
   <main>
@@ -249,7 +272,11 @@
       <canvas id="asrChart"></canvas>
     </div>
 
-    <p class="section-title">Latest audit rows</p>
+    <div id="examplesWrap" style="display:none;">
+      <p class="section-title">Recorded examples (guards off vs on)</p>
+      <div id="examples"></div>
+    </div>
+    <p class="section-title" id="auditTitle">Latest audit rows</p>
     <div id="auditWrap">
       <table id="auditTable" style="display:none;">
         <thead>
@@ -257,57 +284,21 @@
         </thead>
         <tbody id="auditBody"></tbody>
       </table>
-      <div class="empty-state" id="auditEmpty">No audit rows yet.</div>
+      <div class="empty-state" id="auditEmpty">No audit rows to show.</div>
     </div>
   </main>
 
 </div>
 
+<script src="config.js"></script>
 <script src="vendor/chart.umd.min.js"></script>
 <script>
-// Fallback sample data — matches score.py's real output shape exactly.
-// Used only if /dashboard/results.json and /audit can't be reached
-// (e.g. viewing this file standalone, or before a run has been scored).
-const FALLBACK_RESULTS = {
-  quotable: false,
-  stub_detected_count: 0,
-  error_count: 1,
-  by_split: {
-    dev: {
-      attacks: {
-        off: { overall_asr: 0.42, pii_leakage_rate: 0.31,
-               by_category: {
-                 direct_injection: { attack_success_rate: 0.55, total: 30, success: 17, errors: 0 },
-                 indirect_injection: { attack_success_rate: 0.38, total: 30, success: 11, errors: 0 },
-                 role_spoofing: { attack_success_rate: 0.47, total: 28, success: 13, errors: 0 },
-                 pii_extraction: { attack_success_rate: 0.34, total: 32, success: 11, errors: 0 },
-                 obfuscated_exfil: { attack_success_rate: 0.40, total: 30, success: 12, errors: 0 },
-               } },
-        on:  { overall_asr: 0.06, pii_leakage_rate: 0.04,
-               by_category: {
-                 direct_injection: { attack_success_rate: 0.03, total: 30, success: 1, errors: 0 },
-                 indirect_injection: { attack_success_rate: 0.10, total: 30, success: 3, errors: 0 },
-                 role_spoofing: { attack_success_rate: 0.04, total: 28, success: 1, errors: 0 },
-                 pii_extraction: { attack_success_rate: 0.03, total: 32, success: 1, errors: 0 },
-                 obfuscated_exfil: { attack_success_rate: 0.10, total: 30, success: 3, errors: 0 },
-               } },
-      },
-    },
-  },
-  benign_false_block_rate: 0.05,
-  benign_total: 60,
-  benign_blocked: 3,
-};
+const STATIC = (window.DASHBOARD_CONFIG || {}).mode === "static";
+const DATA_BASE = STATIC ? "data/" : "";
 
-const FALLBACK_AUDIT = [
-  { timestamp: "2026-10-18T10:02:11+0000", role: "support_agent", decision: "answered", block_reason: null, retrieved_doc_ids: ["doc_0042"] },
-  { timestamp: "2026-10-18T10:02:40+0000", role: "fraud_analyst", decision: "blocked_output", block_reason: "output_guard", retrieved_doc_ids: ["doc_0651"] },
-  { timestamp: "2026-10-18T10:03:02+0000", role: "support_agent", decision: "blocked_input", block_reason: "input_guard", retrieved_doc_ids: [] },
-];
-
-async function fetchJSON(url) {
+async function fetchJSON(url, options) {
   try {
-    const r = await fetch(url);
+    const r = await fetch(url, options);
     if (!r.ok) return null;
     return await r.json();
   } catch {
@@ -315,45 +306,66 @@ async function fetchJSON(url) {
   }
 }
 
+function esc(x) {
+  return String(x ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
 function pct(x) {
   return x === null || x === undefined ? "—" : (x * 100).toFixed(1) + "%";
 }
 
-function renderTiles(result) {
-  const dev = result.by_split?.dev?.attacks;
+// Prefer the held-out test split when it has scored attacks, otherwise dev.
+function pickSplit(result) {
+  const total = (s) => Object.values(result.by_split?.[s]?.attacks?.on?.by_category || {})
+    .reduce((n, c) => n + (c.total || 0), 0);
+  return total("test") > 0 ? "test" : "dev";
+}
+
+function renderResults(result) {
+  const pending = document.getElementById("pending");
+  const banner = document.getElementById("notQuotable");
+  const flag = document.getElementById("quotableFlag");
+  if (!result || !result.by_split) {
+    pending.style.display = "block";
+    document.getElementById("tiles").innerHTML = "";
+    document.getElementById("chartPanel").style.display = "none";
+    return;
+  }
+  const split = pickSplit(result);
+  const dev = result.by_split?.[split]?.attacks;
   const off = dev?.off, on = dev?.on;
   const tiles = [
-    { label: "ASR — guards off", value: pct(off?.overall_asr), cls: "leak" },
-    { label: "ASR — guards on", value: pct(on?.overall_asr), cls: "safe" },
+    { label: `ASR — guards off (${split})`, value: pct(off?.overall_asr), cls: "leak" },
+    { label: `ASR — guards on (${split})`, value: pct(on?.overall_asr), cls: "safe" },
     { label: "PII leakage — on", value: pct(on?.pii_leakage_rate), cls: "safe" },
     { label: "Benign false-block", value: pct(result.benign_false_block_rate), cls: "" },
     { label: "Errors excluded", value: result.error_count ?? "—", cls: "" },
+    { label: "Invalid records", value: result.invalid_records ?? "—", cls: "" },
   ];
   document.getElementById("tiles").innerHTML = tiles.map(t => `
     <div class="tile">
       <div class="num ${t.cls}">${t.value}</div>
       <div class="label">${t.label}</div>
     </div>`).join("");
-
-  const flag = document.getElementById("quotableFlag");
-  flag.textContent = result.quotable ? "quotable" : "not quotable — stub detected";
+  flag.textContent = result.quotable ? "quotable" : "not quotable";
   flag.className = "quotable-flag " + (result.quotable ? "yes" : "no");
+  if (!result.quotable) {
+    const why = (result.quotable_reasons || []).join("; ");
+    banner.textContent = "Not quotable" + (why ? ": " + why : "") + ". Do not cite these numbers.";
+    banner.style.display = "block";
+  }
+  renderChart(off?.by_category || {}, on?.by_category || {});
 }
 
-function renderChart(result) {
-  const off = result.by_split?.dev?.attacks?.off?.by_category || {};
-  const on = result.by_split?.dev?.attacks?.on?.by_category || {};
+function renderChart(off, on) {
   const categories = Array.from(new Set([...Object.keys(off), ...Object.keys(on)]));
-  const offData = categories.map(c => (off[c]?.attack_success_rate ?? 0) * 100);
-  const onData = categories.map(c => (on[c]?.attack_success_rate ?? 0) * 100);
-
   new Chart(document.getElementById("asrChart"), {
     type: "bar",
     data: {
       labels: categories,
       datasets: [
-        { label: "Guards off", data: offData, backgroundColor: "#F85149" },
-        { label: "Guards on", data: onData, backgroundColor: "#3FB950" },
+        { label: "Guards off", data: categories.map(c => (off[c]?.attack_success_rate ?? 0) * 100), backgroundColor: "#F85149" },
+        { label: "Guards on", data: categories.map(c => (on[c]?.attack_success_rate ?? 0) * 100), backgroundColor: "#3FB950" },
       ],
     },
     options: {
@@ -366,6 +378,19 @@ function renderChart(result) {
       plugins: { legend: { labels: { color: "#E6EDF3" } } },
     },
   });
+}
+
+function renderExamples(examples) {
+  const wrap = document.getElementById("examplesWrap");
+  if (!examples || examples.length === 0) return;
+  wrap.style.display = "block";
+  document.getElementById("examples").innerHTML = examples.map(e => `
+    <div class="example">
+      <div class="cat">${esc(e.category)} · ${esc(e.role)}</div>
+      <div class="lbl">Prompt</div><pre>${esc(e.prompt)}</pre>
+      <div class="lbl">Guards off answer</div><pre>${esc(e.guards_off_answer)}</pre>
+      <div class="lbl">Guards on outcome</div><pre>${esc(e.guards_on_outcome)}</pre>
+    </div>`).join("");
 }
 
 function renderAudit(rows) {
@@ -381,45 +406,55 @@ function renderAudit(rows) {
   empty.style.display = "none";
   body.innerHTML = rows.map(r => `
     <tr>
-      <td>${(r.timestamp || "").replace("T", " ").replace(/\+.*/, "")}</td>
-      <td>${r.role || "—"}</td>
-      <td class="decision ${r.decision}">${r.decision}</td>
-      <td>${r.block_reason || "—"}</td>
-      <td>${(r.retrieved_doc_ids || []).join(", ") || "—"}</td>
+      <td>${esc((r.timestamp || "").replace("T", " ").replace(/\+.*/, ""))}</td>
+      <td>${esc(r.role || "—")}</td>
+      <td class="decision ${esc(r.decision)}">${esc(r.decision)}</td>
+      <td>${esc(r.block_reason || "—")}</td>
+      <td>${esc((r.retrieved_doc_ids || []).join(", ") || "—")}</td>
     </tr>`).join("");
 }
 
-
+// Live mode: /audit needs a compliance token, taken from the form.
 async function refreshAudit() {
-  const audit = await fetchJSON("/audit?limit=20");
+  const token = document.getElementById("token").value.trim();
+  if (!token) {
+    document.getElementById("auditEmpty").textContent = "Enter a compliance officer token to load audit rows.";
+    return;
+  }
+  const audit = await fetchJSON("/audit?limit=20", { headers: { "X-User-Token": token } });
   if (audit) {
-    renderAudit(Array.isArray(audit) ? audit : audit.rows || []);
+    renderAudit(audit.rows || []);
+  } else {
+    document.getElementById("auditEmpty").textContent = "Audit rows need a compliance officer token.";
+    renderAudit([]);
   }
 }
 
-
 async function loadDashboard() {
-  const results = (await fetchJSON("results.json")) || FALLBACK_RESULTS;
-  const audit = (await fetchJSON("/audit?limit=20")) || FALLBACK_AUDIT;
-  renderTiles(results);
-  renderChart(results);
-  renderAudit(Array.isArray(audit) ? audit : audit.rows || FALLBACK_AUDIT);
+  renderResults(await fetchJSON(DATA_BASE + "results.json"));
+  if (STATIC) {
+    document.getElementById("liveForm").style.display = "none";
+    document.getElementById("runLocal").style.display = "block";
+    document.getElementById("auditTitle").textContent = "Sample audit rows";
+    renderExamples(await fetchJSON("data/examples.json"));
+    renderAudit(await fetchJSON("data/audit_sample.json"));
+  } else {
+    refreshAudit();
+  }
 }
-
 
 const ROLE_EXAMPLES = {
   support_agent: "What is the policy for disputing a card transaction?",
-  fraud_analyst: "Summarize the case note for the fraud review opened on customer c_033.",
-  compliance_officer: "Summarize the compliance report for customer c_077.",
+  fraud_analyst: "Why was a suspicious transaction velocity case opened for customer c_001?",
+  compliance_officer: "What did the quarterly OFAC sanctions screening audit conclude?",
 };
-
 document.getElementById("role").addEventListener("change", (e) => {
   const example = ROLE_EXAMPLES[e.target.value];
   if (example) {
     document.getElementById("query").value = example;
   }
 });
-
+document.getElementById("token").addEventListener("change", refreshAudit);
 
 document.getElementById("sendBtn").addEventListener("click", async () => {
   const token = document.getElementById("token").value.trim();
@@ -428,63 +463,44 @@ document.getElementById("sendBtn").addEventListener("click", async () => {
   if (!token || !query) return;
   btn.disabled = true;
   btn.textContent = "Asking…";
+  const box = document.getElementById("liveAnswer");
+  const tag = document.getElementById("liveTag");
   try {
     const r = await fetch("/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-User-Token": token },
       body: JSON.stringify({ query }),
     });
-
     const body = await r.json().catch(() => ({}));
-    const box = document.getElementById("liveAnswer");
-    const tag = document.getElementById("liveTag");
     box.classList.add("show");
-
     if (!r.ok) {
       tag.textContent = `request failed (HTTP ${r.status})`;
       tag.className = "tag blocked";
-      document.getElementById("liveText").textContent = body.detail || "(server error)";
+      document.getElementById("liveText").textContent =
+        typeof body.detail === "string" ? body.detail : "(request rejected)";
       document.getElementById("liveMeta").textContent = "";
       return;
     }
-
     tag.textContent = body.blocked ? `blocked — ${body.block_reason}` : "answered";
     tag.className = "tag " + (body.blocked ? "blocked" : "answered");
     document.getElementById("liveText").textContent = body.answer || "(no answer)";
-
-    let latStr = "—";
-    if (typeof body.latency_ms === "number") {
-      latStr = `${body.latency_ms}ms`;
-    } else if (body.latency_ms && typeof body.latency_ms === "object") {
-      const l = body.latency_ms;
-      latStr = `in=${l.input_guard ?? "—"}ms ret=${l.retrieval ?? "—"}ms llm=${l.llm ?? "—"}ms out=${l.output_guard ?? "—"}ms`;
-    }
-
-    const inLabel = body.guards?.input?.label ?? "—";
-    const inScore = body.guards?.input?.score !== undefined
-      ? (typeof body.guards.input.score === "number" ? body.guards.input.score.toFixed(2) : body.guards.input.score)
-      : "—";
-    const outRedact = body.guards?.output?.redaction_count ?? body.guards?.output?.redactions ?? "—";
-    const outReasons = body.guards?.output?.reasons?.length ? ` [${body.guards.output.reasons.join(", ")}]` : "";
-
+    const l = body.latency_ms || {};
+    const inGuard = body.guards?.input;
+    const outGuard = body.guards?.output;
     document.getElementById("liveMeta").textContent =
       `sources: ${(body.sources || []).join(", ") || "none"} · ` +
-      `latency: ${latStr} · ` +
-      `input: ${inLabel} (${inScore}) · ` +
-      `output redactions: ${outRedact}${outReasons}`;
-
+      `latency: in=${l.input_guard ?? "—"}ms ret=${l.retrieval ?? "—"}ms llm=${l.llm ?? "—"}ms out=${l.output_guard ?? "—"}ms · ` +
+      `input: ${inGuard?.label ?? "—"} (${typeof inGuard?.score === "number" ? inGuard.score.toFixed(2) : "—"}) · ` +
+      `output redactions: ${outGuard?.redaction_count ?? "—"}`;
   } catch (e) {
-    const box = document.getElementById("liveAnswer");
     box.classList.add("show");
-    document.getElementById("liveTag").textContent = "request failed";
-    document.getElementById("liveTag").className = "tag blocked";
+    tag.textContent = "request failed";
+    tag.className = "tag blocked";
     document.getElementById("liveText").textContent = String(e);
-
   } finally {
     btn.disabled = false;
     btn.textContent = "Ask";
     refreshAudit();
-
   }
 });
 
